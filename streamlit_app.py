@@ -277,13 +277,6 @@ st.markdown(f"""
         </div>
     </div>
 
-    <div class="nb-chip-row">
-        <span class="nb-chip">Step by step</span>
-        <span class="nb-chip">Exam assistance</span>
-        <span class="nb-chip">Concept tutoring</span>
-        <span class="nb-chip">Error checking</span>
-        <span class="nb-chip">Modern workspace</span>
-    </div>
 </div>
 """, unsafe_allow_html=True)
 
