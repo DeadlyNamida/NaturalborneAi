@@ -343,20 +343,96 @@ html, body {
 </style>
 </head>
 <body>
-<!--
-Paste this script at the bottom of your HTML before the </body> tag.
-See more style and config options on our docs
-https://github.com/Mintplex-Labs/anythingllm-embed/blob/main/README.md
--->
-<script
-  data-embed-id="b88248cc-18a9-4bbc-be9e-a88dbe4f2aaf"
-  data-base-api-url="http://localhost:3001/api/embed"
-  src="http://localhost:3001/embed/anythingllm-chat-widget.min.js">
-</script>
-<!-- AnythingLLM (https://anythingllm.com) -->
+# app.py
 
+embed_html = f"""
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    html, body {{
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      background: #020617;
+      overflow: visible;
+      font-family: Arial, sans-serif;
+    }}
+
+    #mount {{
+      width: 100%;
+      height: 100%;
+      min-height: {height}px;
+      position: relative;
+      background: #020617;
+    }}
+
+    #debug {{
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #cbd5e1;
+      font-size: 14px;
+      text-align: center;
+      padding: 24px;
+      line-height: 1.6;
+    }}
+
+    #debug.hidden {{
+      display: none;
+    }}
+  </style>
+</head>
+<body>
+  <div id="mount">
+    <div id="debug">
+      Loading Naturalborne chat...<br/>
+      If this stays blank, the AnythingLLM script is not loading.
+    </div>
+  </div>
+
+  <script>
+    (function () {{
+      const debug = document.getElementById("debug");
+      const script = document.createElement("script");
+
+      script.src = "http://localhost:3001/embed/anythingllm-chat-widget.min.js";
+      script.async = true;
+
+      script.setAttribute("data-embed-id", "b88248cc-18a9-4bbc-be9e-a88dbe4f2aaf");
+      script.setAttribute("data-base-api-url", "http://localhost:3001/api/embed");
+      script.setAttribute("data-open-on-load", "on");
+      script.setAttribute("data-position", "bottom-right");
+      script.setAttribute("data-window-width", "100%");
+      script.setAttribute("data-window-height", "{height - 40}px");
+      script.setAttribute("data-assistant-name", "Naturalborne");
+      script.setAttribute("data-send-message-text", "Ask a calculus question...");
+      script.setAttribute("data-no-sponsor", "");
+      script.setAttribute("data-no-header", "");
+
+      script.onload = function () {{
+        debug.classList.add("hidden");
+      }};
+
+      script.onerror = function () {{
+        debug.classList.remove("hidden");
+        debug.innerHTML =
+          "AnythingLLM widget failed to load.<br/><br/>" +
+          "Check that AnythingLLM is running on port 3001 and open this URL directly:<br/>" +
+          "http://localhost:3001/embed/anythingllm-chat-widget.min.js";
+      }};
+
+      document.body.appendChild(script);
+    }})();
+  </script>
 </body>
 </html>
+"""
 """
 
 st.markdown('<div class="nb-widget-shell"><div class="nb-widget-inner">', unsafe_allow_html=True)
