@@ -1,19 +1,23 @@
-# 🎈 Blank app template
+# Naturalborne Streamlit AnythingLLM UI
 
-A simple Streamlit app template for you to modify!
+A Streamlit-native frontend for your Naturalborne AnythingLLM workspace.
 
-[![Open in Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://blank-app-template.streamlit.app/)
+## What it does
+- accepts your AnythingLLM base URL, workspace slug, and API key in the UI
+- sends chat requests to your AnythingLLM workspace
+- gives you response modes, suggested prompts, export chat, and a cleaner modern layout
 
-### How to run it on your own machine
+## Run
+```bash
+pip install -r requirements.txt
+streamlit run streamlit_app.py
+```
 
-1. Install the requirements
+## Fields
+- Base URL: example `http://127.0.0.1:8001`
+- Workspace Slug: your Naturalborne workspace slug
+- API Key: your AnythingLLM API key
+- Chat Path: defaults to `/api/v1/workspace/{workspace_slug}/chat`
 
-   ```
-   $ pip install -r requirements.txt
-   ```
-
-2. Run the app
-
-   ```
-   $ streamlit run streamlit_app.py
-   ```
+## Important
+If you later deploy this Streamlit app remotely, a local Docker URL like `127.0.0.1:8001` will only work if that deployed app can actually reach your machine.
