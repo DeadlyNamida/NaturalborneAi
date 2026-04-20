@@ -76,11 +76,32 @@ def build_embed_html(initial_height: int, prompts: list[str]) -> str:
       overflow: visible;
     }}
 
+    #status {{
+      color: rgba(203, 213, 225, 0.72);
+      font-size: 14px;
+      padding: 4px 0 10px 2px;
+    }}
+
+    #status.hidden {{
+      display: none;
+    }}
+
+    #promptSection {{
+      padding-top: 14px;
+    }}
+
+    #promptTitle {{
+      margin: 0 0 10px 0;
+      color: #f8fafc;
+      font-size: 1.05rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+    }}
+
     #promptBar {{
       display: flex;
       flex-wrap: wrap;
       gap: 10px;
-      padding: 0 0 14px 0;
     }}
 
     .prompt-chip {{
@@ -107,16 +128,6 @@ def build_embed_html(initial_height: int, prompts: list[str]) -> str:
       transform: translateY(0);
     }}
 
-    #status {{
-      color: rgba(203, 213, 225, 0.72);
-      font-size: 14px;
-      padding: 4px 0 10px 2px;
-    }}
-
-    #status.hidden {{
-      display: none;
-    }}
-
     @media (max-width: 700px) {{
       #promptBar {{
         gap: 8px;
@@ -131,8 +142,12 @@ def build_embed_html(initial_height: int, prompts: list[str]) -> str:
 </head>
 <body>
   <div id="mount">
-    <div id="promptBar"></div>
     <div id="status">Loading Naturalborne chat…</div>
+    <div id="embedRoot"></div>
+    <div id="promptSection">
+      <div id="promptTitle">Calculus prompts</div>
+      <div id="promptBar"></div>
+    </div>
   </div>
 
   <script>
@@ -591,7 +606,7 @@ with left:
         <div class="nb-card">
             <div class="nb-card-title">Workspace</div>
             <div class="nb-card-text">
-                Use the calculus prompt chips to auto-fill the chat box, then send or edit the question.
+                Use the embedded chat first, then tap a calculus prompt below to auto-fill the text box.
             </div>
         </div>
         """,
@@ -604,7 +619,7 @@ with right:
         <div class="nb-card">
             <div class="nb-card-title">Live chat</div>
             <div class="nb-card-text">
-                Auto-resizing AnythingLLM embed with clickable calculus prompts.
+                Auto-resizing AnythingLLM embed with prompt chips below it.
             </div>
         </div>
         """,
@@ -617,7 +632,7 @@ if show_tips:
         <div class="nb-card" style="margin-top:14px; margin-bottom:12px;">
             <div class="nb-card-title">Study tips</div>
             <div class="nb-note">
-                Start with a prompt chip, then add your own working if you want corrections or an exam-style answer.
+                Pick a prompt below, then edit the wording if you want a shorter answer, tutor mode, or exam format.
             </div>
         </div>
         """,
