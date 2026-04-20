@@ -1,419 +1,364 @@
-import json
-from datetime import datetime
-
-import requests
 import streamlit as st
+import streamlit.components.v1 as components
+from pathlib import Path
+import base64
 
-# =========================================================
-# EMBEDDED CONNECTION SETTINGS
-# =========================================================
-# Paste your actual values here before running.
-ANYTHINGLLM_BASE_URL = "http://127.0.0.1:3001"
-ANYTHINGLLM_API_KEY = "GPWSNPA-X2Q4VAC-PR1D626-3ZWMQQ6"
-WORKSPACE_SLUG = "naturalborne"
-CHAT_PATH = "/v1/workspace/naturalborne/chat"
-VERIFY_SSL = True
-TIMEOUT_SECONDS = 120
+st.set_page_config(page_title="Naturalborne", page_icon="🧠", layout="wide", initial_sidebar_state="expanded")
 
-SUGGESTED_PROMPTS = [
-    "Differentiate $3x^2 + 5x - 7$ step by step.",
-    "Explain the chain rule in simple terms.",
-    "Evaluate $\\lim_{x \\to 2} \\frac{x^2 - 4}{x - 2}$.",
-    "Solve this in exam mode: Differentiate $(2x-3)^5$.",
-    "Check my working for this integral.",
-    "Explain integration like I am a beginner.",
-    "Give the final answer only for $\\frac{dy}{dx}(x^4)$.",
-    "Teach me how to solve derivative word problems."
-]
+def image_to_base64(path: str) -> str:
+    p = Path(path)
+    if not p.exists():
+        return ""
+    return base64.b64encode(p.read_bytes()).decode("utf-8")
 
-MODE_GUIDANCE = {
-    "Step-by-Step Mode": "Full working with each step shown clearly.",
-    "Exam Mode": "Neat answer format with task, answer, and working.",
-    "Concept Explanation": "Simple explanation with a clear example if needed.",
-    "Short Answer Mode": "Final answer first with very little extra detail.",
-    "Teaching Mode": "Slower explanation like a tutor helping a student.",
-    "Error Checking": "Review the work, find mistakes, and correct them."
-}
+logo_b64 = image_to_base64("logo.png")
 
-if "messages" not in st.session_state:
-    st.session_state.messages = []
+with st.sidebar:
+    st.markdown("## Naturalborne")
+    st.caption("Advanced Calculus Workspace")
+    large_chat = st.toggle("Large chat area", value=True)
+    show_tips = st.toggle("Show study tips", value=True)
+    show_prompts = st.toggle("Show prompt ideas", value=True)
+    accent_glow = st.toggle("Accent glow", value=True)
 
-if "pending_prompt" not in st.session_state:
-    st.session_state.pending_prompt = ""
+    st.markdown("---")
+    st.markdown("### Modes")
+    st.markdown("- Step by step")
+    st.markdown("- Exam assistance")
+    st.markdown("- Concept tutoring")
+    st.markdown("- Error checking")
 
-if "response_mode" not in st.session_state:
-    st.session_state.response_mode = "Step-by-Step Mode"
+    st.markdown("---")
+    st.caption("Make sure AnythingLLM is running on port 3001.")
 
+height = 980 if large_chat else 780
+glow = "0 0 0 1px rgba(96,165,250,0.12), 0 30px 90px rgba(37,99,235,0.20)" if accent_glow else "0 18px 60px rgba(0,0,0,0.22)"
 
-def clear_chat() -> None:
-    st.session_state.messages = []
-
-
-def queue_prompt(text: str) -> None:
-    st.session_state.pending_prompt = text
-
-
-def export_chat() -> str:
-    payload = {
-        "created_at": datetime.utcnow().isoformat() + "Z",
-        "mode": st.session_state.response_mode,
-        "messages": st.session_state.messages,
-    }
-    return json.dumps(payload, indent=2, ensure_ascii=False)
-
-
-def build_url() -> str:
-    return f"{ANYTHINGLLM_BASE_URL.rstrip('/')}{CHAT_PATH.format(workspace_slug=WORKSPACE_SLUG)}"
-
-
-def healthcheck() -> tuple[bool, str]:
-    try:
-        response = requests.get(
-            f"{ANYTHINGLLM_BASE_URL.rstrip('/')}/api/docs",
-            timeout=min(TIMEOUT_SECONDS, 20),
-            verify=VERIFY_SSL,
-        )
-        if response.ok:
-            return True, "Ready"
-        return False, f"Unavailable ({response.status_code})"
-    except Exception as exc:
-        return False, str(exc)
-
-
-def extract_response_text(data: dict) -> str:
-    for key in ("textResponse", "response", "message"):
-        value = data.get(key)
-        if isinstance(value, str) and value.strip():
-            return value
-
-    if isinstance(data.get("messages"), list) and data["messages"]:
-        last = data["messages"][-1]
-        if isinstance(last, dict):
-            for key in ("content", "text", "message"):
-                value = last.get(key)
-                if isinstance(value, str) and value.strip():
-                    return value
-
-    return json.dumps(data, indent=2, ensure_ascii=False)
-
-
-def send_message(message: str, mode: str) -> str:
-    response = requests.post(
-        build_url(),
-        headers={
-            "Authorization": f"Bearer {ANYTHINGLLM_API_KEY}",
-            "Content-Type": "application/json",
-            "Accept": "application/json",
-        },
-        json={
-            "message": message,
-            "mode": mode,
-        },
-        timeout=TIMEOUT_SECONDS,
-        verify=VERIFY_SSL,
-    )
-    response.raise_for_status()
-    data = response.json()
-    return extract_response_text(data)
-
-
-st.set_page_config(
-    page_title="Naturalborne",
-    page_icon="🧠",
-    layout="wide",
-    initial_sidebar_state="expanded",
-)
-
-st.markdown(
-    """
-    <style>
-    .stApp {
+st.markdown(f"""
+<style>
+    .stApp {{
         background:
-            radial-gradient(circle at top left, rgba(59,130,246,0.16), transparent 24%),
-            radial-gradient(circle at bottom right, rgba(14,165,233,0.10), transparent 18%),
-            linear-gradient(180deg, #030712 0%, #0b1220 42%, #101826 100%);
+            radial-gradient(circle at top left, rgba(59,130,246,0.14), transparent 26%),
+            radial-gradient(circle at bottom right, rgba(14,165,233,0.10), transparent 20%),
+            linear-gradient(180deg, #020617 0%, #0b1220 48%, #0b1120 100%);
         color: #f8fafc;
-    }
+    }}
 
-    .block-container {
-        max-width: 1320px;
-        padding-top: 4rem;
-        padding-bottom: 2.2rem;
-        padding-left: 2rem;
-        padding-right: 2rem;
-    }
+    .block-container {{
+        max-width: 1280px;
+        padding-top: 3.8rem;
+        padding-bottom: 2rem;
+        padding-left: 1.4rem;
+        padding-right: 1.4rem;
+    }}
 
-    [data-testid="stSidebar"] {
-        background: linear-gradient(180deg, rgba(15,23,42,0.99), rgba(17,24,39,0.99));
+    [data-testid="stSidebar"] {{
+        background: linear-gradient(180deg, rgba(15,23,42,0.98), rgba(17,24,39,0.98));
         border-right: 1px solid rgba(148,163,184,0.10);
-    }
+    }}
 
-    [data-testid="stSidebar"] .block-container {
-        padding-top: 1.8rem;
-    }
+    [data-testid="stSidebar"] .block-container {{
+        padding-top: 1.6rem;
+    }}
 
-    .nb-hero {
-        background:
-            linear-gradient(135deg, rgba(15,23,42,0.94), rgba(17,24,39,0.90));
-        border: 1px solid rgba(148,163,184,0.10);
-        border-radius: 32px;
-        padding: 2.2rem 2.2rem 2rem 2.2rem;
-        box-shadow: 0 22px 70px rgba(0,0,0,0.34);
-    }
+    .nb-hero {{
+        position: relative;
+        overflow: hidden;
+        background: linear-gradient(135deg, rgba(15,23,42,0.94), rgba(17,24,39,0.90));
+        border: 1px solid rgba(148,163,184,0.12);
+        border-radius: 30px;
+        padding: 2rem 2rem 1.8rem;
+        margin-bottom: 1rem;
+        box-shadow: {glow};
+    }}
 
-    .nb-logo-wrap {
+    .nb-hero::before {{
+        content: "";
+        position: absolute;
+        inset: -20% auto auto -10%;
+        width: 280px;
+        height: 280px;
+        background: radial-gradient(circle, rgba(37,99,235,0.18), transparent 70%);
+        pointer-events: none;
+    }}
+
+    .nb-brand {{
         display: flex;
-        justify-content: center;
-        margin-bottom: 0.7rem;
-    }
+        align-items: center;
+        gap: 18px;
+        position: relative;
+        z-index: 2;
+    }}
 
-    .nb-title {
-        text-align: center;
-        font-size: 3.4rem;
+    .nb-logo-wrap {{
+        width: 86px;
+        height: 86px;
+        border-radius: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(15,23,42,0.74);
+        border: 1px solid rgba(96,165,250,0.14);
+        box-shadow: inset 0 0 0 1px rgba(255,255,255,0.02);
+        flex-shrink: 0;
+    }}
+
+    .nb-logo-wrap img {{
+        width: 58px;
+        height: 58px;
+        object-fit: contain;
+        display: block;
+    }}
+
+    .nb-title {{
+        margin: 0;
+        font-size: 3rem;
         line-height: 1;
         font-weight: 800;
-        letter-spacing: -0.05em;
-        margin: 0 0 0.8rem 0;
-    }
+        letter-spacing: -0.04em;
+        color: #f8fafc;
+    }}
 
-    .nb-sub {
-        text-align: center;
+    .nb-sub {{
+        margin-top: 0.6rem;
+        color: #cbd5e1;
         max-width: 860px;
-        margin: 0 auto 1rem auto;
-        color: #d7e0ee;
-        line-height: 1.85;
-        font-size: 1.06rem;
-    }
+        line-height: 1.8;
+        font-size: 1.03rem;
+    }}
 
-    .nb-chip-row {
+    .nb-chip-row {{
         display: flex;
-        justify-content: center;
-        flex-wrap: wrap;
         gap: 10px;
-        margin-top: 0.4rem;
-    }
+        flex-wrap: wrap;
+        margin-top: 1rem;
+        position: relative;
+        z-index: 2;
+    }}
 
-    .nb-chip {
+    .nb-chip {{
         display: inline-flex;
-        padding: 0.55rem 0.86rem;
+        align-items: center;
+        padding: 0.56rem 0.88rem;
         border-radius: 999px;
         background: rgba(37,99,235,0.14);
         border: 1px solid rgba(96,165,250,0.22);
         color: #dbeafe;
         font-size: 0.88rem;
-    }
+    }}
 
-    .nb-card {
-        background: rgba(15,23,42,0.76);
+    .nb-grid {{
+        display: grid;
+        grid-template-columns: 1.6fr 1fr;
+        gap: 16px;
+        margin-bottom: 1rem;
+    }}
+
+    .nb-card {{
+        background: rgba(15,23,42,0.74);
         border: 1px solid rgba(148,163,184,0.12);
         border-radius: 24px;
-        padding: 1.15rem 1.1rem;
-        box-shadow: 0 12px 34px rgba(0,0,0,0.16);
-        height: 100%;
-    }
+        padding: 1.15rem 1.15rem;
+        box-shadow: 0 14px 38px rgba(0,0,0,0.16);
+    }}
 
-    .nb-label {
+    .nb-card-title {{
         color: #93c5fd;
         text-transform: uppercase;
         letter-spacing: 0.08em;
         font-size: 0.78rem;
         font-weight: 700;
         margin-bottom: 0.55rem;
-    }
+    }}
 
-    .nb-text {
+    .nb-card-text {{
         color: #dbe3ef;
         font-size: 0.98rem;
-        line-height: 1.72;
-    }
-
-    .nb-section-title {
-        font-size: 1.95rem;
-        font-weight: 800;
-        letter-spacing: -0.03em;
-        margin-top: 1.15rem;
-        margin-bottom: 0.5rem;
-    }
-
-    .nb-section-sub {
-        color: #b8c6d9;
         line-height: 1.7;
-        margin-bottom: 0.85rem;
-    }
+    }}
 
-    div[data-testid="stButton"] > button {
-        width: 100%;
+    .nb-widget-shell {{
+        position: relative;
+        background: rgba(7,12,24,0.64);
+        border: 1px solid rgba(148,163,184,0.12);
+        border-radius: 28px;
+        padding: 18px;
+        box-shadow: {glow};
+        overflow: hidden;
+    }}
+
+    .nb-widget-shell::before {{
+        content: "Naturalborne Live Workspace";
+        position: absolute;
+        top: 14px;
+        left: 18px;
+        color: #93c5fd;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        font-size: 0.74rem;
+        font-weight: 700;
+        z-index: 2;
+        pointer-events: none;
+    }}
+
+    .nb-widget-inner {{
+        margin-top: 26px;
+        border-radius: 22px;
+        overflow: hidden;
+        background: rgba(2,6,23,0.5);
+        min-height: 560px;
+    }}
+
+    .nb-prompt-title {{
+        font-size: 1.4rem;
+        font-weight: 800;
+        letter-spacing: -0.02em;
+        margin: 0 0 0.7rem 0;
+        color: #f8fafc;
+    }}
+
+    .nb-prompt-wrap {{
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+    }}
+
+    .nb-prompt {{
+        display: inline-flex;
+        padding: 0.8rem 1rem;
         border-radius: 999px;
-        padding: 0.88rem 1.08rem;
-        border: 1px solid rgba(96,165,250,0.22);
-        background: linear-gradient(135deg, #2563eb, #1d4ed8);
+        background: linear-gradient(135deg, rgba(37,99,235,0.94), rgba(29,78,216,0.90));
         color: white;
         font-weight: 700;
-        box-shadow: 0 10px 26px rgba(37,99,235,0.22);
-    }
+        font-size: 0.9rem;
+        box-shadow: 0 10px 28px rgba(37,99,235,0.18);
+    }}
 
-    div[data-testid="stButton"] > button:hover {
-        border-color: rgba(147,197,253,0.45);
-    }
+    .nb-note {{
+        color: #a9bbd3;
+        line-height: 1.7;
+        font-size: 0.96rem;
+    }}
 
-    div[data-testid="stDownloadButton"] > button {
-        width: 100%;
-        border-radius: 16px;
-    }
-
-    hr {
-        border-color: rgba(148,163,184,0.10) !important;
-    }
-
-    @media (max-width: 900px) {
-        .block-container {
+    @media (max-width: 950px) {{
+        .block-container {{
             padding-top: 3rem;
             padding-left: 1rem;
             padding-right: 1rem;
-        }
+        }}
+        .nb-grid {{
+            grid-template-columns: 1fr;
+        }}
+        .nb-brand {{
+            align-items: flex-start;
+        }}
+        .nb-title {{
+            font-size: 2.3rem;
+        }}
+        .nb-hero {{
+            padding: 1.35rem;
+        }}
+    }}
+</style>
+""", unsafe_allow_html=True)
 
-        .nb-title {
-            font-size: 2.5rem;
-        }
+logo_html = f'<img src="data:image/png;base64,{logo_b64}" alt="Naturalborne logo">' if logo_b64 else ""
 
-        .nb-hero {
-            padding: 1.45rem;
-        }
-    }
-    </style>
-    """,
-    unsafe_allow_html=True,
-)
-
-ok, status = healthcheck() if ANYTHINGLLM_BASE_URL.strip() and ANYTHINGLLM_API_KEY.strip() else (False, "Not configured")
-
-with st.sidebar:
-    st.markdown("## Naturalborne")
-    st.caption("Study Workspace")
-
-    st.selectbox(
-        "Study Mode",
-        list(MODE_GUIDANCE.keys()),
-        key="response_mode",
-    )
-    st.write(MODE_GUIDANCE[st.session_state.response_mode])
-
-    st.markdown("---")
-    st.write(f"**Workspace:** `{WORKSPACE_SLUG}`")
-    st.write(f"**Status:** {'Ready' if ok else 'Unavailable'}")
-    st.caption(status)
-
-    if st.button("Clear Chat", use_container_width=True):
-        clear_chat()
-        st.rerun()
-
-    st.download_button(
-        "Download Chat JSON",
-        data=export_chat(),
-        file_name="naturalborne_chat.json",
-        mime="application/json",
-        use_container_width=True,
-    )
-
-hero_left, hero_right = st.columns([1.65, 1])
-
-with hero_left:
-    st.markdown('<div class="nb-hero">', unsafe_allow_html=True)
-    st.markdown('<div class="nb-logo-wrap">', unsafe_allow_html=True)
-    try:
-        st.image("logo.png", width=110)
-    except Exception:
-        pass
-    st.markdown('</div>', unsafe_allow_html=True)
-    st.markdown('<div class="nb-title">Naturalborne</div>', unsafe_allow_html=True)
-    st.markdown(
-        '<div class="nb-sub">A focused study space for calculus. Work through derivatives, integrals, limits, exam questions, and corrections with clearer structure and a stronger study flow.</div>',
-        unsafe_allow_html=True,
-    )
-    st.markdown(
-        """
-        <div class="nb-chip-row">
-            <span class="nb-chip">Step by step</span>
-            <span class="nb-chip">Exam support</span>
-            <span class="nb-chip">Concept help</span>
-            <span class="nb-chip">Error review</span>
-            <span class="nb-chip">Math-friendly formatting</span>
+st.markdown(f"""
+<div class="nb-hero">
+    <div class="nb-brand">
+        <div class="nb-logo-wrap">{logo_html}</div>
+        <div>
+            <h1 class="nb-title">Naturalborne</h1>
+            <div class="nb-sub">
+                An advanced student-focused calculus workspace for guided problem solving, concept support,
+                exam assistance, and cleaner mathematical discussion in one place.
+            </div>
         </div>
-        """,
-        unsafe_allow_html=True,
-    )
-    st.markdown('</div>', unsafe_allow_html=True)
+    </div>
 
-with hero_right:
-    st.markdown(
-        f"""
-        <div class="nb-card">
-            <div class="nb-label">Current Mode</div>
-            <div class="nb-text"><strong>{st.session_state.response_mode}</strong><br>{MODE_GUIDANCE[st.session_state.response_mode]}</div>
+    <div class="nb-chip-row">
+        <span class="nb-chip">Step by step</span>
+        <span class="nb-chip">Exam assistance</span>
+        <span class="nb-chip">Concept tutoring</span>
+        <span class="nb-chip">Error checking</span>
+        <span class="nb-chip">Modern workspace</span>
+    </div>
+</div>
+""", unsafe_allow_html=True)
+
+left, right = st.columns([1.55, 1])
+
+with left:
+    st.markdown("""
+    <div class="nb-card">
+        <div class="nb-card-title">Workspace</div>
+        <div class="nb-card-text">
+            Use the embedded Naturalborne chat below to ask calculus questions naturally.
+            The layout is designed to feel cleaner, more focused, and more like a polished final project interface.
         </div>
-        """,
-        unsafe_allow_html=True,
-    )
+    </div>
+    """, unsafe_allow_html=True)
 
-    st.markdown("<div style='height:14px;'></div>", unsafe_allow_html=True)
-
-    ready_text = (
-        "Everything is set for chat."
-        if ok
-        else "Add your connection values in the file before using the workspace."
-    )
-    st.markdown(
-        f"""
-        <div class="nb-card">
-            <div class="nb-label">Session</div>
-            <div class="nb-text">{ready_text}</div>
+with right:
+    st.markdown(f"""
+    <div class="nb-card">
+        <div class="nb-card-title">Current setup</div>
+        <div class="nb-card-text">
+            {'Expanded chat height is enabled.' if large_chat else 'Compact chat height is enabled.'}
+            {' Extra accent glow is enabled.' if accent_glow else ' Accent glow is reduced.'}
         </div>
-        """,
-        unsafe_allow_html=True,
-    )
+    </div>
+    """, unsafe_allow_html=True)
 
-st.markdown('<div class="nb-section-title">Start with one of these</div>', unsafe_allow_html=True)
-st.markdown(
-    '<div class="nb-section-sub">Pick a prompt below or type your own question into the chat box.</div>',
-    unsafe_allow_html=True,
-)
+if show_prompts:
+    st.markdown('<div class="nb-prompt-title">Suggested ways to use Naturalborne</div>', unsafe_allow_html=True)
+    st.markdown("""
+    <div class="nb-prompt-wrap">
+        <span class="nb-prompt">Differentiate step by step</span>
+        <span class="nb-prompt">Explain a concept simply</span>
+        <span class="nb-prompt">Solve in exam format</span>
+        <span class="nb-prompt">Check my working</span>
+        <span class="nb-prompt">Teach it like a tutor</span>
+    </div>
+    """, unsafe_allow_html=True)
 
-cols = st.columns(4)
-for i, example in enumerate(SUGGESTED_PROMPTS):
-    with cols[i % 4]:
-        if st.button(example, use_container_width=True):
-            queue_prompt(example)
-            st.rerun()
+if show_tips:
+    st.markdown("""
+    <div class="nb-card" style="margin-top:16px; margin-bottom:16px;">
+        <div class="nb-card-title">Study tips</div>
+        <div class="nb-note">
+            Ask full questions for better help, include your own working when you want corrections,
+            and say when you want a shorter answer or an exam-style format.
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
 
-st.markdown("<hr>", unsafe_allow_html=True)
+embed_html = """
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<style>
+html, body {
+    margin: 0;
+    padding: 0;
+    background: transparent;
+    overflow: hidden;
+}
+</style>
+</head>
+<body>
+<script
+  data-embed-id="b88248cc-18a9-4bbc-be9e-a88dbe4f2aaf"
+  data-base-api-url="http://127.0.0.1:3001/api/embed"
+  src="http://127.0.0.1:3001/embed/anythingllm-chat-widget.min.js">
+</script>
+</body>
+</html>
+"""
 
-for message in st.session_state.messages:
-    with st.chat_message(message["role"]):
-        st.markdown(message["content"])
-
-pending_prompt = st.session_state.pending_prompt
-prompt = st.chat_input("Ask a calculus question...")
-
-if pending_prompt and not prompt:
-    prompt = pending_prompt
-    st.session_state.pending_prompt = ""
-
-if prompt:
-    st.session_state.messages.append({"role": "user", "content": prompt})
-    with st.chat_message("user"):
-        st.markdown(prompt)
-
-    if not ANYTHINGLLM_BASE_URL.strip() or not ANYTHINGLLM_API_KEY.strip():
-        answer = "Add your base URL and key in the file first."
-        with st.chat_message("assistant"):
-            st.error(answer)
-        st.session_state.messages.append({"role": "assistant", "content": answer})
-    else:
-        with st.chat_message("assistant"):
-            try:
-                answer = send_message(prompt, st.session_state.response_mode)
-                st.markdown(answer)
-            except Exception as exc:
-                answer = f"Request failed.\n\n`{exc}`"
-                st.error(answer)
-        st.session_state.messages.append({"role": "assistant", "content": answer})
+st.markdown('<div class="nb-widget-shell"><div class="nb-widget-inner">', unsafe_allow_html=True)
+components.html(embed_html, height=height, scrolling=False)
+st.markdown('</div></div>', unsafe_allow_html=True)
