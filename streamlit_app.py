@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import base64
+import json
 from pathlib import Path
 
 import streamlit as st
@@ -12,6 +13,17 @@ EMBED_ID = "b88248cc-18a9-4bbc-be9e-a88dbe4f2aaf"
 ANYTHINGLLM_HOST = "http://localhost:3001"
 EMBED_SCRIPT_URL = f"{ANYTHINGLLM_HOST}/embed/anythingllm-chat-widget.min.js"
 EMBED_API_URL = f"{ANYTHINGLLM_HOST}/api/embed"
+
+PROMPTS = [
+    "Differentiate x^3 ln(x) step by step.",
+    "Integrate sin(x)^2 from 0 to pi.",
+    "Explain the chain rule with a simple example.",
+    "Find the derivative of e^(x^2) and explain each step.",
+    "Solve this limit: lim(x→0) (sin x)/x.",
+    "Use implicit differentiation on x^2 + y^2 = 25.",
+    "Find critical points and classify them for f(x)=x^3-3x^2+2.",
+    "Teach me u-substitution like a tutor.",
+]
 
 st.set_page_config(
     page_title="Naturalborne",
@@ -28,7 +40,8 @@ def image_to_base64(path: str) -> str:
     return base64.b64encode(file_path.read_bytes()).decode("utf-8")
 
 
-def build_embed_html(initial_height: int) -> str:
+def build_embed_html(initial_height: int, prompts: list[str]) -> str:
+    prompts_json = json.dumps(prompts)
     return f"""
 <!DOCTYPE html>
 <html lang="en">
@@ -48,6 +61,7 @@ def build_embed_html(initial_height: int) -> str:
       background: transparent;
       overflow: hidden;
       font-family: Arial, Helvetica, sans-serif;
+      color: #f8fafc;
     }}
 
     body {{
@@ -62,29 +76,69 @@ def build_embed_html(initial_height: int) -> str:
       overflow: visible;
     }}
 
-    #status {{
+    #promptBar {{
       display: flex;
-      align-items: center;
-      justify-content: center;
-      min-height: {initial_height}px;
+      flex-wrap: wrap;
+      gap: 10px;
+      padding: 0 0 14px 0;
+    }}
+
+    .prompt-chip {{
+      appearance: none;
+      border: 1px solid rgba(96, 165, 250, 0.22);
+      background: linear-gradient(135deg, rgba(37,99,235,0.94), rgba(29,78,216,0.90));
+      color: white;
+      border-radius: 999px;
+      padding: 0.8rem 1rem;
+      font-size: 0.9rem;
+      font-weight: 700;
+      line-height: 1.2;
+      cursor: pointer;
+      box-shadow: 0 10px 28px rgba(37,99,235,0.18);
+      transition: transform 120ms ease, opacity 120ms ease;
+    }}
+
+    .prompt-chip:hover {{
+      transform: translateY(-1px);
+      opacity: 0.96;
+    }}
+
+    .prompt-chip:active {{
+      transform: translateY(0);
+    }}
+
+    #status {{
       color: rgba(203, 213, 225, 0.72);
       font-size: 14px;
-      text-align: center;
-      padding: 24px;
+      padding: 4px 0 10px 2px;
     }}
 
     #status.hidden {{
       display: none;
     }}
+
+    @media (max-width: 700px) {{
+      #promptBar {{
+        gap: 8px;
+      }}
+
+      .prompt-chip {{
+        width: 100%;
+        text-align: left;
+      }}
+    }}
   </style>
 </head>
 <body>
   <div id="mount">
+    <div id="promptBar"></div>
     <div id="status">Loading Naturalborne chat…</div>
   </div>
 
   <script>
     (function () {{
+      const prompts = {prompts_json};
+      const promptBar = document.getElementById("promptBar");
       const status = document.getElementById("status");
 
       function getBestHeight() {{
@@ -123,6 +177,161 @@ def build_embed_html(initial_height: int) -> str:
         }});
       }}
 
+      function deepQuerySelector(root, selectors) {{
+        if (!root) return null;
+
+        for (const selector of selectors) {{
+          try {{
+            const found = root.querySelector(selector);
+            if (found) return found;
+          }} catch (e) {{
+          }}
+        }}
+
+        const all = root.querySelectorAll ? root.querySelectorAll("*") : [];
+        for (const el of all) {{
+          if (el.shadowRoot) {{
+            const found = deepQuerySelector(el.shadowRoot, selectors);
+            if (found) return found;
+          }}
+        }}
+
+        return null;
+      }}
+
+      function deepQueryAllTextControls(root) {{
+        const results = [];
+
+        function visit(node) {{
+          if (!node || !node.querySelectorAll) return;
+
+          const local = node.querySelectorAll(
+            'textarea, input[type="text"], input:not([type]), [contenteditable="true"], [role="textbox"]'
+          );
+
+          for (const el of local) {{
+            results.push(el);
+          }}
+
+          const all = node.querySelectorAll("*");
+          for (const el of all) {{
+            if (el.shadowRoot) {{
+              visit(el.shadowRoot);
+            }}
+          }}
+        }}
+
+        visit(root);
+        return results;
+      }}
+
+      function setValueOnElement(el, text) {{
+        if (!el) return false;
+
+        try {{
+          el.focus();
+        }} catch (e) {{
+        }}
+
+        if ("value" in el) {{
+          const setter = Object.getOwnPropertyDescriptor(
+            Object.getPrototypeOf(el),
+            "value"
+          )?.set;
+
+          if (setter) {{
+            setter.call(el, text);
+          }} else {{
+            el.value = text;
+          }}
+
+          el.dispatchEvent(new Event("input", {{ bubbles: true }}));
+          el.dispatchEvent(new Event("change", {{ bubbles: true }}));
+          el.dispatchEvent(new KeyboardEvent("keydown", {{ bubbles: true, key: "End" }}));
+          el.dispatchEvent(new KeyboardEvent("keyup", {{ bubbles: true, key: "End" }}));
+          return true;
+        }}
+
+        if (el.isContentEditable) {{
+          el.textContent = text;
+          el.dispatchEvent(new Event("input", {{ bubbles: true }}));
+          return true;
+        }}
+
+        return false;
+      }}
+
+      function findBestTextbox() {{
+        const widget = document.querySelector("anythingllm-chat-widget");
+        const roots = [document, widget?.shadowRoot].filter(Boolean);
+
+        const selectors = [
+          'textarea[placeholder*="Ask" i]',
+          'textarea[placeholder*="message" i]',
+          'textarea',
+          'input[type="text"][placeholder*="Ask" i]',
+          'input[type="text"][placeholder*="message" i]',
+          '[contenteditable="true"]',
+          '[role="textbox"]'
+        ];
+
+        for (const root of roots) {{
+          const direct = deepQuerySelector(root, selectors);
+          if (direct) return direct;
+
+          const controls = deepQueryAllTextControls(root);
+          if (controls.length) return controls[controls.length - 1];
+        }}
+
+        return null;
+      }}
+
+      function autofillPrompt(text) {{
+        let ok = false;
+        let attempts = 0;
+
+        const tryFill = () => {{
+          attempts += 1;
+          const textbox = findBestTextbox();
+
+          if (textbox) {{
+            ok = setValueOnElement(textbox, text);
+            try {{
+              textbox.focus();
+            }} catch (e) {{
+            }}
+          }}
+
+          if (!ok && attempts < 12) {{
+            setTimeout(tryFill, 300);
+            return;
+          }}
+
+          status.textContent = ok
+            ? "Prompt inserted into the chat box."
+            : "Could not auto-fill the chat box. Paste this prompt manually: " + text;
+          status.classList.remove("hidden");
+          setTimeout(() => {{
+            status.classList.add("hidden");
+            resizeNow();
+          }}, ok ? 1600 : 3600);
+        }};
+
+        tryFill();
+      }}
+
+      function addPromptButtons() {{
+        promptBar.innerHTML = "";
+        for (const prompt of prompts) {{
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = "prompt-chip";
+          button.textContent = prompt;
+          button.addEventListener("click", () => autofillPrompt(prompt));
+          promptBar.appendChild(button);
+        }}
+      }}
+
       const observer = new MutationObserver(() => {{
         resizeNow();
 
@@ -142,6 +351,8 @@ def build_embed_html(initial_height: int) -> str:
       window.addEventListener("resize", resizeNow);
 
       setInterval(resizeNow, 700);
+
+      addPromptButtons();
 
       const script = document.createElement("script");
       script.src = "{EMBED_SCRIPT_URL}";
@@ -177,7 +388,6 @@ with st.sidebar:
     st.markdown("## Naturalborne")
     st.caption("Advanced Calculus Workspace")
     show_tips = st.toggle("Show study tips", value=True)
-    show_prompts = st.toggle("Show prompt ideas", value=True)
     accent_glow = st.toggle("Accent glow", value=True)
 
     st.markdown("---")
@@ -197,7 +407,7 @@ glow = (
     else "0 18px 60px rgba(0,0,0,0.22)"
 )
 
-initial_chat_height = 640
+initial_chat_height = 720
 
 st.markdown(
     f"""
@@ -323,31 +533,6 @@ st.markdown(
         background: transparent;
     }}
 
-    .nb-prompt-title {{
-        font-size: 1.25rem;
-        font-weight: 800;
-        letter-spacing: -0.02em;
-        margin: 0 0 0.6rem 0;
-        color: #f8fafc;
-    }}
-
-    .nb-prompt-wrap {{
-        display: flex;
-        gap: 10px;
-        flex-wrap: wrap;
-    }}
-
-    .nb-prompt {{
-        display: inline-flex;
-        padding: 0.8rem 1rem;
-        border-radius: 999px;
-        background: linear-gradient(135deg, rgba(37,99,235,0.94), rgba(29,78,216,0.90));
-        color: white;
-        font-weight: 700;
-        font-size: 0.9rem;
-        box-shadow: 0 10px 28px rgba(37,99,235,0.18);
-    }}
-
     .nb-note {{
         color: #a9bbd3;
         line-height: 1.7;
@@ -406,7 +591,7 @@ with left:
         <div class="nb-card">
             <div class="nb-card-title">Workspace</div>
             <div class="nb-card-text">
-                Use the embedded Naturalborne chat below to ask calculus questions naturally.
+                Use the calculus prompt chips to auto-fill the chat box, then send or edit the question.
             </div>
         </div>
         """,
@@ -419,26 +604,8 @@ with right:
         <div class="nb-card">
             <div class="nb-card-title">Live chat</div>
             <div class="nb-card-text">
-                Auto-resizing AnythingLLM embed with no extra shell box.
+                Auto-resizing AnythingLLM embed with clickable calculus prompts.
             </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-if show_prompts:
-    st.markdown(
-        '<div class="nb-prompt-title">Suggested ways to use Naturalborne</div>',
-        unsafe_allow_html=True,
-    )
-    st.markdown(
-        """
-        <div class="nb-prompt-wrap">
-            <span class="nb-prompt">Differentiate step by step</span>
-            <span class="nb-prompt">Explain a concept simply</span>
-            <span class="nb-prompt">Solve in exam format</span>
-            <span class="nb-prompt">Check my working</span>
-            <span class="nb-prompt">Teach it like a tutor</span>
         </div>
         """,
         unsafe_allow_html=True,
@@ -450,8 +617,7 @@ if show_tips:
         <div class="nb-card" style="margin-top:14px; margin-bottom:12px;">
             <div class="nb-card-title">Study tips</div>
             <div class="nb-note">
-                Ask full questions for better help, include your own working when you want corrections,
-                and say when you want a shorter answer or an exam-style format.
+                Start with a prompt chip, then add your own working if you want corrections or an exam-style answer.
             </div>
         </div>
         """,
@@ -459,5 +625,5 @@ if show_tips:
     )
 
 st.markdown('<div class="nb-embed">', unsafe_allow_html=True)
-components.html(build_embed_html(initial_chat_height), height=initial_chat_height, scrolling=False)
+components.html(build_embed_html(initial_chat_height, PROMPTS), height=initial_chat_height, scrolling=False)
 st.markdown("</div>", unsafe_allow_html=True)
