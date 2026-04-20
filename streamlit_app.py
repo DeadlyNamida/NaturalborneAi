@@ -343,11 +343,18 @@ html, body {
 </style>
 </head>
 <body>
+<!--
+Paste this script at the bottom of your HTML before the </body> tag.
+See more style and config options on our docs
+https://github.com/Mintplex-Labs/anythingllm-embed/blob/main/README.md
+-->
 <script
   data-embed-id="b88248cc-18a9-4bbc-be9e-a88dbe4f2aaf"
-  data-base-api-url="http://127.0.0.1:3001/api/embed"
-  src="http://127.0.0.1:3001/embed/anythingllm-chat-widget.min.js">
+  data-base-api-url="http://localhost:3001/api/embed"
+  src="http://localhost:3001/embed/anythingllm-chat-widget.min.js">
 </script>
+<!-- AnythingLLM (https://anythingllm.com) -->
+
 </body>
 </html>
 """
