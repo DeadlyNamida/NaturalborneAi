@@ -1,7 +1,7 @@
 # app.py
 
 from __future__ import annotations
- 
+
 import base64
 import json
 from pathlib import Path
@@ -84,6 +84,21 @@ THEMES = {
     },
 }
 
+MATH_FORMATTING_RULES = """Formatting rules for mathematics:
+- Never use LaTeX.
+- Never use backslash math commands like \\frac, \\sqrt, \\int, \\theta.
+- Use plain Unicode mathematical symbols and readable plain text notation.
+- Write exponents as x^2, x^3, e^(x^2).
+- Write subscripts as x_1, y_2 when needed.
+- Write square roots as √x or sqrt(x).
+- Write fractions as (a/b) when needed.
+- Use symbols like π, ∫, √, ≤, ≥, ≠, → where appropriate.
+- Keep multiline work neat and step by step.
+- End with a clear 'Final Answer:' line.
+- Make the output readable in a plain chat interface with no special math renderer.
+"""
+
+
 st.set_page_config(
     page_title="Naturalborne",
     page_icon="🧠",
@@ -99,8 +114,15 @@ def image_to_base64(path: str) -> str:
     return base64.b64encode(file_path.read_bytes()).decode("utf-8")
 
 
-def compose_prompt(base_prompt: str, mode_name: str, extra_instructions: str = "") -> str:
-    parts = [MODES.get(mode_name, "").strip()]
+def compose_prompt(
+    base_prompt: str,
+    mode_name: str,
+    extra_instructions: str = "",
+    enforce_plain_math: bool = True,
+) -> str:
+    parts: list[str] = [MODES.get(mode_name, "").strip()]
+    if enforce_plain_math:
+        parts.append(MATH_FORMATTING_RULES.strip())
     if extra_instructions.strip():
         parts.append(extra_instructions.strip())
     parts.append(base_prompt.strip())
@@ -408,6 +430,8 @@ if "extra_instructions" not in st.session_state:
     st.session_state.extra_instructions = ""
 if "prompt_clicks" not in st.session_state:
     st.session_state.prompt_clicks = 0
+if "plain_math_mode" not in st.session_state:
+    st.session_state.plain_math_mode = True
 
 theme = THEMES[st.session_state.theme_name]
 logo_b64 = image_to_base64("logo.png")
@@ -432,6 +456,12 @@ with st.sidebar:
         "Prompt topic",
         list(PROMPT_LIBRARY.keys()),
         index=list(PROMPT_LIBRARY.keys()).index(st.session_state.topic),
+    )
+
+    st.session_state.plain_math_mode = st.toggle(
+        "Readable math formatting",
+        value=st.session_state.plain_math_mode,
+        help="Forces plain-text math output instead of LaTeX.",
     )
 
     compact_header = st.toggle("Compact header", value=False)
@@ -730,6 +760,7 @@ st.markdown(
                     <div class="nb-pill">Current mode: {st.session_state.mode}</div>
                     <div class="nb-pill">Topic: {st.session_state.topic}</div>
                     <div class="nb-pill">Theme: {st.session_state.theme_name}</div>
+                    <div class="nb-pill">Readable math: {"On" if st.session_state.plain_math_mode else "Off"}</div>
                 </div>
             </div>
         </div>
@@ -763,10 +794,10 @@ with info_right:
     st.markdown(
         """
         <div class="nb-glass">
-            <div class="nb-card-title">Advanced features</div>
+            <div class="nb-card-title">Math output fix</div>
             <div class="nb-card-text">
-                Auto-resizing embed, prompt injection, mode presets, themed interface,
-                topic filtering, custom instructions, and reusable prompt composition.
+                Plain-text math mode avoids LaTeX and forces readable symbols like π, √, ∫, x^2,
+                and (a/b) for cleaner output in the AnythingLLM embed.
             </div>
         </div>
         """,
@@ -779,7 +810,7 @@ if show_stats:
         ("Working mode", st.session_state.mode),
         ("Topic focus", st.session_state.topic),
         ("Prompt clicks", str(st.session_state.prompt_clicks)),
-        ("Theme", st.session_state.theme_name),
+        ("Math format", "Readable" if st.session_state.plain_math_mode else "Default"),
     ]
     for col, (label, value) in zip(stats_cols, stats_data):
         with col:
@@ -800,6 +831,8 @@ if show_tips:
             <div class="nb-card-title">Study tips</div>
             <div class="nb-card-text">
                 Pick a mode first, inject a prompt, then tweak the wording in the chat box.
+                For better readability, keep readable math formatting enabled.
+            </div>
         </div>
         """,
         unsafe_allow_html=True,
@@ -862,6 +895,7 @@ for topic_name, tab in zip(PROMPT_LIBRARY.keys(), topic_tabs):
                         prompt,
                         st.session_state.mode,
                         st.session_state.extra_instructions,
+                        st.session_state.plain_math_mode,
                     )
                     st.session_state.apply_nonce += 1
                     st.session_state.prompt_clicks += 1
@@ -880,19 +914,23 @@ with builder_col1:
         height=120,
         key="custom_question",
     )
+
 with builder_col2:
     st.markdown(
         """
         <div class="nb-glass" style="height:100%;">
             <div class="nb-card-title">Prompt formula</div>
             <div class="nb-card-text">
-                Mode preset + your extra instruction + question body.<br><br>
+                Mode preset + readable math rules + extra instruction + question body.<br><br>
+                This keeps calculus output cleaner inside a plain chat widget.
+            </div>
         </div>
         """,
         unsafe_allow_html=True,
     )
 
 builder_actions = st.columns([1, 1, 1])
+
 with builder_actions[0]:
     if st.button("Inject custom prompt", use_container_width=True):
         if custom_question.strip():
@@ -900,20 +938,24 @@ with builder_actions[0]:
                 custom_question,
                 st.session_state.mode,
                 st.session_state.extra_instructions,
+                st.session_state.plain_math_mode,
             )
             st.session_state.apply_nonce += 1
             st.session_state.prompt_clicks += 1
             st.rerun()
+
 with builder_actions[1]:
     if st.button("Inject mode only", use_container_width=True):
         st.session_state.pending_prompt = compose_prompt(
             "Help me with a calculus problem.",
             st.session_state.mode,
             st.session_state.extra_instructions,
+            st.session_state.plain_math_mode,
         )
         st.session_state.apply_nonce += 1
         st.session_state.prompt_clicks += 1
         st.rerun()
+
 with builder_actions[2]:
     if st.button("Clear pending prompt", use_container_width=True):
         st.session_state.pending_prompt = ""
@@ -923,7 +965,7 @@ with builder_actions[2]:
 st.markdown(
     """
     <div class="nb-footer-note">
-        Tip: for a stronger foundation demo multiple modes on the same problem.
+        Tip: for a stronger foundation, demo the same problem with readable math on and off.
     </div>
     """,
     unsafe_allow_html=True,
