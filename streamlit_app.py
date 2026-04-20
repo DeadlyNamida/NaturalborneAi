@@ -889,7 +889,7 @@ with builder_col2:
             <div class="nb-card-title">Prompt formula</div>
             <div class="nb-card-text">
                 Mode preset + your extra instruction + question body.<br><br>
-                This makes your requests look more deliberate, structured, and academically polished.
+               
             </div>
         </div>
         """,
