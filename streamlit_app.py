@@ -1,15 +1,209 @@
+# app.py
+
+from __future__ import annotations
+
+import base64
+from pathlib import Path
+
 import streamlit as st
 import streamlit.components.v1 as components
-from pathlib import Path
-import base64
 
-st.set_page_config(page_title="Naturalborne", page_icon="🧠", layout="wide", initial_sidebar_state="expanded")
+
+EMBED_ID = "b88248cc-18a9-4bbc-be9e-a88dbe4f2aaf"
+ANYTHINGLLM_HOST = "http://localhost:3001"
+EMBED_SCRIPT_URL = f"{ANYTHINGLLM_HOST}/embed/anythingllm-chat-widget.min.js"
+EMBED_API_URL = f"{ANYTHINGLLM_HOST}/api/embed"
+
+
+st.set_page_config(
+    page_title="Naturalborne",
+    page_icon="🧠",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
+
 
 def image_to_base64(path: str) -> str:
-    p = Path(path)
-    if not p.exists():
+    file_path = Path(path)
+    if not file_path.exists():
         return ""
-    return base64.b64encode(p.read_bytes()).decode("utf-8")
+    return base64.b64encode(file_path.read_bytes()).decode("utf-8")
+
+
+def build_embed_html(height: int) -> str:
+    return f"""
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    :root {{
+      color-scheme: dark;
+    }}
+
+    * {{
+      box-sizing: border-box;
+    }}
+
+    html, body {{
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      min-height: {height}px;
+      background: #020617;
+      overflow: hidden;
+      font-family: Arial, Helvetica, sans-serif;
+    }}
+
+    body {{
+      display: flex;
+      align-items: stretch;
+      justify-content: stretch;
+    }}
+
+    #mount {{
+      position: relative;
+      width: 100%;
+      height: 100%;
+      min-height: {height}px;
+      background:
+        radial-gradient(circle at top left, rgba(59,130,246,0.10), transparent 22%),
+        linear-gradient(180deg, #020617 0%, #0b1220 100%);
+      border-radius: 18px;
+      overflow: hidden;
+    }}
+
+    #status {{
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 28px;
+      text-align: center;
+      color: #cbd5e1;
+      line-height: 1.7;
+      font-size: 14px;
+      background: rgba(2, 6, 23, 0.72);
+      z-index: 1;
+    }}
+
+    #status.hidden {{
+      display: none;
+    }}
+
+    .status-card {{
+      max-width: 720px;
+      padding: 24px;
+      border: 1px solid rgba(148, 163, 184, 0.18);
+      border-radius: 18px;
+      background: rgba(15, 23, 42, 0.92);
+      box-shadow: 0 18px 50px rgba(0, 0, 0, 0.28);
+    }}
+
+    .status-title {{
+      font-size: 18px;
+      font-weight: 700;
+      color: #f8fafc;
+      margin-bottom: 10px;
+    }}
+
+    .status-text {{
+      margin-bottom: 12px;
+    }}
+
+    .status-code {{
+      display: inline-block;
+      padding: 8px 12px;
+      border-radius: 10px;
+      background: rgba(30, 41, 59, 0.95);
+      color: #93c5fd;
+      word-break: break-all;
+      margin: 6px 0;
+    }}
+
+    .status-list {{
+      margin: 14px 0 0 0;
+      padding-left: 18px;
+      text-align: left;
+    }}
+
+    .status-list li {{
+      margin-bottom: 8px;
+    }}
+  </style>
+</head>
+<body>
+  <div id="mount">
+    <div id="status">
+      <div class="status-card">
+        <div class="status-title">Loading Naturalborne chat</div>
+        <div class="status-text">Trying to load the AnythingLLM widget from your local server.</div>
+        <div class="status-code">{EMBED_SCRIPT_URL}</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function () {{
+      const status = document.getElementById("status");
+
+      function showError(message) {{
+        status.classList.remove("hidden");
+        status.innerHTML = `
+          <div class="status-card">
+            <div class="status-title">Chat widget did not load</div>
+            <div class="status-text">${{message}}</div>
+            <ul class="status-list">
+              <li>Make sure AnythingLLM is running on port 3001.</li>
+              <li>Open <span class="status-code">{EMBED_SCRIPT_URL}</span> in your browser.</li>
+              <li>If your Streamlit page is HTTPS, loading HTTP localhost content may be blocked.</li>
+              <li>Try opening the chat service directly in another tab.</li>
+            </ul>
+          </div>
+        `;
+      }}
+
+      const script = document.createElement("script");
+      script.src = "{EMBED_SCRIPT_URL}";
+      script.async = true;
+
+      script.setAttribute("data-embed-id", "{EMBED_ID}");
+      script.setAttribute("data-base-api-url", "{EMBED_API_URL}");
+      script.setAttribute("data-open-on-load", "on");
+      script.setAttribute("data-position", "bottom-right");
+      script.setAttribute("data-window-width", "100%");
+      script.setAttribute("data-window-height", "{max(height - 40, 500)}px");
+      script.setAttribute("data-assistant-name", "Naturalborne");
+      script.setAttribute("data-send-message-text", "Ask a calculus question...");
+      script.setAttribute("data-no-sponsor", "");
+      script.setAttribute("data-no-header", "");
+
+      script.onload = function () {{
+        setTimeout(function () {{
+          status.classList.add("hidden");
+        }}, 1200);
+      }};
+
+      script.onerror = function () {{
+        showError("The AnythingLLM embed script could not be fetched.");
+      }};
+
+      document.body.appendChild(script);
+
+      setTimeout(function () {{
+        if (!document.querySelector("anythingllm-chat-widget")) {{
+          showError("The script loaded or partially loaded, but no visible widget was mounted inside this Streamlit iframe.");
+        }}
+      }}, 4000);
+    }})();
+  </script>
+</body>
+</html>
+"""
+
 
 logo_b64 = image_to_base64("logo.png")
 
@@ -30,11 +224,18 @@ with st.sidebar:
 
     st.markdown("---")
     st.caption("Make sure AnythingLLM is running on port 3001.")
+    st.link_button("Open AnythingLLM", ANYTHINGLLM_HOST, use_container_width=True)
+    st.link_button("Open Embed Script", EMBED_SCRIPT_URL, use_container_width=True)
 
 height = 980 if large_chat else 780
-glow = "0 0 0 1px rgba(96,165,250,0.12), 0 30px 90px rgba(37,99,235,0.20)" if accent_glow else "0 18px 60px rgba(0,0,0,0.22)"
+glow = (
+    "0 0 0 1px rgba(96,165,250,0.12), 0 30px 90px rgba(37,99,235,0.20)"
+    if accent_glow
+    else "0 18px 60px rgba(0,0,0,0.22)"
+)
 
-st.markdown(f"""
+st.markdown(
+    f"""
 <style>
     .stApp {{
         background:
@@ -127,33 +328,6 @@ st.markdown(f"""
         font-size: 1.03rem;
     }}
 
-    .nb-chip-row {{
-        display: flex;
-        gap: 10px;
-        flex-wrap: wrap;
-        margin-top: 1rem;
-        position: relative;
-        z-index: 2;
-    }}
-
-    .nb-chip {{
-        display: inline-flex;
-        align-items: center;
-        padding: 0.56rem 0.88rem;
-        border-radius: 999px;
-        background: rgba(37,99,235,0.14);
-        border: 1px solid rgba(96,165,250,0.22);
-        color: #dbeafe;
-        font-size: 0.88rem;
-    }}
-
-    .nb-grid {{
-        display: grid;
-        grid-template-columns: 1.6fr 1fr;
-        gap: 16px;
-        margin-bottom: 1rem;
-    }}
-
     .nb-card {{
         background: rgba(15,23,42,0.74);
         border: 1px solid rgba(148,163,184,0.12);
@@ -185,6 +359,7 @@ st.markdown(f"""
         padding: 18px;
         box-shadow: {glow};
         overflow: hidden;
+        margin-top: 16px;
     }}
 
     .nb-widget-shell::before {{
@@ -246,55 +421,63 @@ st.markdown(f"""
             padding-left: 1rem;
             padding-right: 1rem;
         }}
-        .nb-grid {{
-            grid-template-columns: 1fr;
-        }}
+
         .nb-brand {{
             align-items: flex-start;
         }}
+
         .nb-title {{
             font-size: 2.3rem;
         }}
+
         .nb-hero {{
             padding: 1.35rem;
         }}
     }}
 </style>
-""", unsafe_allow_html=True)
+""",
+    unsafe_allow_html=True,
+)
 
 logo_html = f'<img src="data:image/png;base64,{logo_b64}" alt="Naturalborne logo">' if logo_b64 else ""
 
-st.markdown(f"""
+st.markdown(
+    f"""
 <div class="nb-hero">
     <div class="nb-brand">
         <div class="nb-logo-wrap">{logo_html}</div>
         <div>
             <h1 class="nb-title">Naturalborne</h1>
             <div class="nb-sub">
-                An advanced student-focused calculus workspace for guided problem solving, concept support,
-                exam assistance, and cleaner mathematical discussion in one place.
+                An advanced student-focused calculus workspace for guided problem solving,
+                concept support, exam assistance, and cleaner mathematical discussion in one place.
             </div>
         </div>
     </div>
-
 </div>
-""", unsafe_allow_html=True)
+""",
+    unsafe_allow_html=True,
+)
 
 left, right = st.columns([1.55, 1])
 
 with left:
-    st.markdown("""
+    st.markdown(
+        """
     <div class="nb-card">
         <div class="nb-card-title">Workspace</div>
         <div class="nb-card-text">
             Use the embedded Naturalborne chat below to ask calculus questions naturally.
-            The layout is designed to feel cleaner, more focused, and more like a polished final project interface.
+            If the local widget cannot mount inside Streamlit, use the sidebar buttons to open AnythingLLM directly.
         </div>
     </div>
-    """, unsafe_allow_html=True)
+    """,
+        unsafe_allow_html=True,
+    )
 
 with right:
-    st.markdown(f"""
+    st.markdown(
+        f"""
     <div class="nb-card">
         <div class="nb-card-title">Current setup</div>
         <div class="nb-card-text">
@@ -302,11 +485,17 @@ with right:
             {' Extra accent glow is enabled.' if accent_glow else ' Accent glow is reduced.'}
         </div>
     </div>
-    """, unsafe_allow_html=True)
+    """,
+        unsafe_allow_html=True,
+    )
 
 if show_prompts:
-    st.markdown('<div class="nb-prompt-title">Suggested ways to use Naturalborne</div>', unsafe_allow_html=True)
-    st.markdown("""
+    st.markdown(
+        '<div class="nb-prompt-title">Suggested ways to use Naturalborne</div>',
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        """
     <div class="nb-prompt-wrap">
         <span class="nb-prompt">Differentiate step by step</span>
         <span class="nb-prompt">Explain a concept simply</span>
@@ -314,10 +503,13 @@ if show_prompts:
         <span class="nb-prompt">Check my working</span>
         <span class="nb-prompt">Teach it like a tutor</span>
     </div>
-    """, unsafe_allow_html=True)
+    """,
+        unsafe_allow_html=True,
+    )
 
 if show_tips:
-    st.markdown("""
+    st.markdown(
+        """
     <div class="nb-card" style="margin-top:16px; margin-bottom:16px;">
         <div class="nb-card-title">Study tips</div>
         <div class="nb-note">
@@ -325,116 +517,15 @@ if show_tips:
             and say when you want a shorter answer or an exam-style format.
         </div>
     </div>
-    """, unsafe_allow_html=True)
-
-embed_html = """
-<!DOCTYPE html>
-<html>
-<head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<style>
-html, body {
-    margin: 0;
-    padding: 0;
-    background: transparent;
-    overflow: hidden;
-}
-</style>
-</head>
-<body>
-# app.py
-
-embed_html = f"""
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <style>
-    html, body {{
-      margin: 0;
-      padding: 0;
-      width: 100%;
-      height: 100%;
-      background: #020617;
-      overflow: visible;
-      font-family: Arial, sans-serif;
-    }}
-
-    #mount {{
-      width: 100%;
-      height: 100%;
-      min-height: {height}px;
-      position: relative;
-      background: #020617;
-    }}
-
-    #debug {{
-      position: absolute;
-      inset: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: #cbd5e1;
-      font-size: 14px;
-      text-align: center;
-      padding: 24px;
-      line-height: 1.6;
-    }}
-
-    #debug.hidden {{
-      display: none;
-    }}
-  </style>
-</head>
-<body>
-  <div id="mount">
-    <div id="debug">
-      Loading Naturalborne chat...<br/>
-      If this stays blank, the AnythingLLM script is not loading.
-    </div>
-  </div>
-
-  <script>
-    (function () {{
-      const debug = document.getElementById("debug");
-      const script = document.createElement("script");
-
-      script.src = "http://localhost:3001/embed/anythingllm-chat-widget.min.js";
-      script.async = true;
-
-      script.setAttribute("data-embed-id", "b88248cc-18a9-4bbc-be9e-a88dbe4f2aaf");
-      script.setAttribute("data-base-api-url", "http://localhost:3001/api/embed");
-      script.setAttribute("data-open-on-load", "on");
-      script.setAttribute("data-position", "bottom-right");
-      script.setAttribute("data-window-width", "100%");
-      script.setAttribute("data-window-height", "{height - 40}px");
-      script.setAttribute("data-assistant-name", "Naturalborne");
-      script.setAttribute("data-send-message-text", "Ask a calculus question...");
-      script.setAttribute("data-no-sponsor", "");
-      script.setAttribute("data-no-header", "");
-
-      script.onload = function () {{
-        debug.classList.add("hidden");
-      }};
-
-      script.onerror = function () {{
-        debug.classList.remove("hidden");
-        debug.innerHTML =
-          "AnythingLLM widget failed to load.<br/><br/>" +
-          "Check that AnythingLLM is running on port 3001 and open this URL directly:<br/>" +
-          "http://localhost:3001/embed/anythingllm-chat-widget.min.js";
-      }};
-
-      document.body.appendChild(script);
-    }})();
-  </script>
-</body>
-</html>
-"""
-"""
+    """,
+        unsafe_allow_html=True,
+    )
 
 st.markdown('<div class="nb-widget-shell"><div class="nb-widget-inner">', unsafe_allow_html=True)
-components.html(embed_html, height=height, scrolling=False)
-st.markdown('</div></div>', unsafe_allow_html=True)
+components.html(build_embed_html(height), height=height, scrolling=False)
+st.markdown("</div></div>", unsafe_allow_html=True)
+
+st.info(
+    "If the embedded widget still does not appear, open AnythingLLM directly from the sidebar. "
+    "That confirms whether the issue is Streamlit iframe embedding versus the AnythingLLM server itself."
+)
