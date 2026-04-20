@@ -1,7 +1,7 @@
 # app.py
 
 from __future__ import annotations
-
+ 
 import base64
 import json
 from pathlib import Path
@@ -889,8 +889,6 @@ with builder_col2:
             <div class="nb-card-title">Prompt formula</div>
             <div class="nb-card-text">
                 Mode preset + your extra instruction + question body.<br><br>
-               
-            </div>
         </div>
         """,
         unsafe_allow_html=True,
