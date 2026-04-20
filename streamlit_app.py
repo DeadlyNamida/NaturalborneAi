@@ -1,11 +1,19 @@
-from __future__ import annotations
-
 import json
 from datetime import datetime
+
+import requests
 import streamlit as st
 
-from services.anythingllm_client import AnythingLLMClient
-from frontend.components import inject_styles, render_hero, render_info_card
+# =========================================================
+# EMBEDDED CONNECTION SETTINGS
+# =========================================================
+# Paste your actual values here before running.
+ANYTHINGLLM_BASE_URL = "http://127.0.0.1:8001"
+ANYTHINGLLM_API_KEY = "GPWSNPA-X2Q4VAC-PR1D626-3ZWMQQ6"
+WORKSPACE_SLUG = "naturalborne"
+CHAT_PATH = "/api/v1/workspace/{workspace_slug}/chat"
+VERIFY_SSL = True
+TIMEOUT_SECONDS = 120
 
 SUGGESTED_PROMPTS = [
     "Differentiate $3x^2 + 5x - 7$ step by step.",
@@ -19,63 +27,60 @@ SUGGESTED_PROMPTS = [
 ]
 
 MODE_GUIDANCE = {
-    "Step-by-Step Mode": "Give the final answer first, then show full working and explanation step by step.",
-    "Exam Mode": "Format the response as Task, Answer, and Working. Keep it neat and exam-ready.",
-    "Concept Explanation": "Define the concept simply, then explain it clearly with an easy example if useful.",
-    "Short Answer Mode": "Give only the final answer with very little explanation unless a step is necessary.",
-    "Teaching Mode": "Explain slowly and clearly like a tutor helping a beginner understand each step.",
-    "Error Checking": "Review the user's work carefully, point out mistakes, explain why they are wrong, and then show the corrected solution."
+    "Step-by-Step Mode": "Full working with each step shown clearly.",
+    "Exam Mode": "Neat answer format with task, answer, and working.",
+    "Concept Explanation": "Simple explanation with a clear example if needed.",
+    "Short Answer Mode": "Final answer first with very little extra detail.",
+    "Teaching Mode": "Slower explanation like a tutor helping a student.",
+    "Error Checking": "Review the work, find mistakes, and correct them."
 }
-
-st.set_page_config(page_title="Naturalborne", page_icon="🧠", layout="wide", initial_sidebar_state="expanded")
-inject_styles()
 
 if "messages" not in st.session_state:
     st.session_state.messages = []
+
 if "pending_prompt" not in st.session_state:
     st.session_state.pending_prompt = ""
-if "base_url" not in st.session_state:
-    st.session_state.base_url = "http://127.0.0.1:8001"
-if "workspace_slug" not in st.session_state:
-    st.session_state.workspace_slug = "naturalborne"
-if "api_key" not in st.session_state:
-    st.session_state.api_key = ""
-if "chat_path" not in st.session_state:
-    st.session_state.chat_path = "/api/v1/workspace/{workspace_slug}/chat"
-if "verify_ssl" not in st.session_state:
-    st.session_state.verify_ssl = True
+
 if "response_mode" not in st.session_state:
     st.session_state.response_mode = "Step-by-Step Mode"
 
-def clear_chat():
+
+def clear_chat() -> None:
     st.session_state.messages = []
 
-def queue_prompt(text: str):
+
+def queue_prompt(text: str) -> None:
     st.session_state.pending_prompt = text
+
 
 def export_chat() -> str:
     payload = {
         "created_at": datetime.utcnow().isoformat() + "Z",
-        "base_url": st.session_state.base_url,
-        "workspace_slug": st.session_state.workspace_slug,
-        "response_mode": st.session_state.response_mode,
+        "mode": st.session_state.response_mode,
         "messages": st.session_state.messages,
     }
     return json.dumps(payload, indent=2, ensure_ascii=False)
 
-def build_client() -> AnythingLLMClient | None:
-    if not st.session_state.base_url.strip() or not st.session_state.workspace_slug.strip() or not st.session_state.api_key.strip():
-        return None
-    return AnythingLLMClient(
-        base_url=st.session_state.base_url,
-        api_key=st.session_state.api_key,
-        workspace_slug=st.session_state.workspace_slug,
-        chat_path=st.session_state.chat_path,
-        timeout_seconds=120,
-        verify_ssl=st.session_state.verify_ssl,
-    )
 
-def extract_assistant_text(data: dict) -> str:
+def build_url() -> str:
+    return f"{ANYTHINGLLM_BASE_URL.rstrip('/')}{CHAT_PATH.format(workspace_slug=WORKSPACE_SLUG)}"
+
+
+def healthcheck() -> tuple[bool, str]:
+    try:
+        response = requests.get(
+            f"{ANYTHINGLLM_BASE_URL.rstrip('/')}/api/docs",
+            timeout=min(TIMEOUT_SECONDS, 20),
+            verify=VERIFY_SSL,
+        )
+        if response.ok:
+            return True, "Ready"
+        return False, f"Unavailable ({response.status_code})"
+    except Exception as exc:
+        return False, str(exc)
+
+
+def extract_response_text(data: dict) -> str:
     for key in ("textResponse", "response", "message"):
         value = data.get(key)
         if isinstance(value, str) and value.strip():
@@ -91,26 +96,212 @@ def extract_assistant_text(data: dict) -> str:
 
     return json.dumps(data, indent=2, ensure_ascii=False)
 
+
+def send_message(message: str, mode: str) -> str:
+    response = requests.post(
+        build_url(),
+        headers={
+            "Authorization": f"Bearer {ANYTHINGLLM_API_KEY}",
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+        },
+        json={
+            "message": message,
+            "mode": mode,
+        },
+        timeout=TIMEOUT_SECONDS,
+        verify=VERIFY_SSL,
+    )
+    response.raise_for_status()
+    data = response.json()
+    return extract_response_text(data)
+
+
+st.set_page_config(
+    page_title="Naturalborne",
+    page_icon="🧠",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
+
+st.markdown(
+    """
+    <style>
+    .stApp {
+        background:
+            radial-gradient(circle at top left, rgba(59,130,246,0.16), transparent 24%),
+            radial-gradient(circle at bottom right, rgba(14,165,233,0.10), transparent 18%),
+            linear-gradient(180deg, #030712 0%, #0b1220 42%, #101826 100%);
+        color: #f8fafc;
+    }
+
+    .block-container {
+        max-width: 1320px;
+        padding-top: 4rem;
+        padding-bottom: 2.2rem;
+        padding-left: 2rem;
+        padding-right: 2rem;
+    }
+
+    [data-testid="stSidebar"] {
+        background: linear-gradient(180deg, rgba(15,23,42,0.99), rgba(17,24,39,0.99));
+        border-right: 1px solid rgba(148,163,184,0.10);
+    }
+
+    [data-testid="stSidebar"] .block-container {
+        padding-top: 1.8rem;
+    }
+
+    .nb-hero {
+        background:
+            linear-gradient(135deg, rgba(15,23,42,0.94), rgba(17,24,39,0.90));
+        border: 1px solid rgba(148,163,184,0.10);
+        border-radius: 32px;
+        padding: 2.2rem 2.2rem 2rem 2.2rem;
+        box-shadow: 0 22px 70px rgba(0,0,0,0.34);
+    }
+
+    .nb-logo-wrap {
+        display: flex;
+        justify-content: center;
+        margin-bottom: 0.7rem;
+    }
+
+    .nb-title {
+        text-align: center;
+        font-size: 3.4rem;
+        line-height: 1;
+        font-weight: 800;
+        letter-spacing: -0.05em;
+        margin: 0 0 0.8rem 0;
+    }
+
+    .nb-sub {
+        text-align: center;
+        max-width: 860px;
+        margin: 0 auto 1rem auto;
+        color: #d7e0ee;
+        line-height: 1.85;
+        font-size: 1.06rem;
+    }
+
+    .nb-chip-row {
+        display: flex;
+        justify-content: center;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 0.4rem;
+    }
+
+    .nb-chip {
+        display: inline-flex;
+        padding: 0.55rem 0.86rem;
+        border-radius: 999px;
+        background: rgba(37,99,235,0.14);
+        border: 1px solid rgba(96,165,250,0.22);
+        color: #dbeafe;
+        font-size: 0.88rem;
+    }
+
+    .nb-card {
+        background: rgba(15,23,42,0.76);
+        border: 1px solid rgba(148,163,184,0.12);
+        border-radius: 24px;
+        padding: 1.15rem 1.1rem;
+        box-shadow: 0 12px 34px rgba(0,0,0,0.16);
+        height: 100%;
+    }
+
+    .nb-label {
+        color: #93c5fd;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        font-size: 0.78rem;
+        font-weight: 700;
+        margin-bottom: 0.55rem;
+    }
+
+    .nb-text {
+        color: #dbe3ef;
+        font-size: 0.98rem;
+        line-height: 1.72;
+    }
+
+    .nb-section-title {
+        font-size: 1.95rem;
+        font-weight: 800;
+        letter-spacing: -0.03em;
+        margin-top: 1.15rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .nb-section-sub {
+        color: #b8c6d9;
+        line-height: 1.7;
+        margin-bottom: 0.85rem;
+    }
+
+    div[data-testid="stButton"] > button {
+        width: 100%;
+        border-radius: 999px;
+        padding: 0.88rem 1.08rem;
+        border: 1px solid rgba(96,165,250,0.22);
+        background: linear-gradient(135deg, #2563eb, #1d4ed8);
+        color: white;
+        font-weight: 700;
+        box-shadow: 0 10px 26px rgba(37,99,235,0.22);
+    }
+
+    div[data-testid="stButton"] > button:hover {
+        border-color: rgba(147,197,253,0.45);
+    }
+
+    div[data-testid="stDownloadButton"] > button {
+        width: 100%;
+        border-radius: 16px;
+    }
+
+    hr {
+        border-color: rgba(148,163,184,0.10) !important;
+    }
+
+    @media (max-width: 900px) {
+        .block-container {
+            padding-top: 3rem;
+            padding-left: 1rem;
+            padding-right: 1rem;
+        }
+
+        .nb-title {
+            font-size: 2.5rem;
+        }
+
+        .nb-hero {
+            padding: 1.45rem;
+        }
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
+ok, status = healthcheck() if ANYTHINGLLM_BASE_URL.strip() and ANYTHINGLLM_API_KEY.strip() else (False, "Not configured")
+
 with st.sidebar:
     st.markdown("## Naturalborne")
-    st.caption("AnythingLLM Workspace Frontend")
+    st.caption("Study Workspace")
 
-    st.text_input("Base URL", key="base_url", help="Example: http://127.0.0.1:8001")
-    st.text_input("Workspace Slug", key="workspace_slug")
-    st.text_input("AnythingLLM API Key", key="api_key", type="password")
-    st.text_input("Chat Path", key="chat_path")
-    st.checkbox("Verify SSL", key="verify_ssl")
-
-    st.selectbox("Response Mode", list(MODE_GUIDANCE.keys()), key="response_mode")
+    st.selectbox(
+        "Study Mode",
+        list(MODE_GUIDANCE.keys()),
+        key="response_mode",
+    )
     st.write(MODE_GUIDANCE[st.session_state.response_mode])
 
-    client = build_client()
-    if client is not None:
-        ok, status = client.healthcheck()
-        st.write(f"**Health:** {'OK' if ok else 'Issue'}")
-        st.caption(status)
-    else:
-        st.write("**Health:** Not configured")
+    st.markdown("---")
+    st.write(f"**Workspace:** `{WORKSPACE_SLUG}`")
+    st.write(f"**Status:** {'Ready' if ok else 'Unavailable'}")
+    st.caption(status)
 
     if st.button("Clear Chat", use_container_width=True):
         clear_chat()
@@ -121,25 +312,72 @@ with st.sidebar:
         data=export_chat(),
         file_name="naturalborne_chat.json",
         mime="application/json",
-        use_container_width=True
+        use_container_width=True,
     )
 
-left, right = st.columns([1.7, 1])
+hero_left, hero_right = st.columns([1.65, 1])
 
-with left:
-    render_hero(
-        "Naturalborne",
-        "A Streamlit-native advanced chat page for your AnythingLLM workspace. "
-        "Paste your base URL, workspace slug, and API key into the sidebar, then chat through a cleaner modern interface."
+with hero_left:
+    st.markdown('<div class="nb-hero">', unsafe_allow_html=True)
+    st.markdown('<div class="nb-logo-wrap">', unsafe_allow_html=True)
+    try:
+        st.image("logo.png", width=110)
+    except Exception:
+        pass
+    st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown('<div class="nb-title">Naturalborne</div>', unsafe_allow_html=True)
+    st.markdown(
+        '<div class="nb-sub">A focused study space for calculus. Work through derivatives, integrals, limits, exam questions, and corrections with clearer structure and a stronger study flow.</div>',
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        """
+        <div class="nb-chip-row">
+            <span class="nb-chip">Step by step</span>
+            <span class="nb-chip">Exam support</span>
+            <span class="nb-chip">Concept help</span>
+            <span class="nb-chip">Error review</span>
+            <span class="nb-chip">Math-friendly formatting</span>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    st.markdown('</div>', unsafe_allow_html=True)
+
+with hero_right:
+    st.markdown(
+        f"""
+        <div class="nb-card">
+            <div class="nb-label">Current Mode</div>
+            <div class="nb-text"><strong>{st.session_state.response_mode}</strong><br>{MODE_GUIDANCE[st.session_state.response_mode]}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
     )
 
-with right:
-    render_info_card(
-        "How it connects",
-        "The app sends each prompt to your configured AnythingLLM workspace chat endpoint and shows the returned response in the chat area below."
+    st.markdown("<div style='height:14px;'></div>", unsafe_allow_html=True)
+
+    ready_text = (
+        "Everything is set for chat."
+        if ok
+        else "Add your connection values in the file before using the workspace."
+    )
+    st.markdown(
+        f"""
+        <div class="nb-card">
+            <div class="nb-label">Session</div>
+            <div class="nb-text">{ready_text}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
     )
 
-st.subheader("Suggested prompts")
+st.markdown('<div class="nb-section-title">Start with one of these</div>', unsafe_allow_html=True)
+st.markdown(
+    '<div class="nb-section-sub">Pick a prompt below or type your own question into the chat box.</div>',
+    unsafe_allow_html=True,
+)
+
 cols = st.columns(4)
 for i, example in enumerate(SUGGESTED_PROMPTS):
     with cols[i % 4]:
@@ -147,7 +385,7 @@ for i, example in enumerate(SUGGESTED_PROMPTS):
             queue_prompt(example)
             st.rerun()
 
-st.divider()
+st.markdown("<hr>", unsafe_allow_html=True)
 
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
@@ -165,20 +403,17 @@ if prompt:
     with st.chat_message("user"):
         st.markdown(prompt)
 
-    client = build_client()
-    if client is None:
-        answer = "Enter your Base URL, Workspace Slug, and AnythingLLM API Key in the sidebar first."
+    if not ANYTHINGLLM_BASE_URL.strip() or not ANYTHINGLLM_API_KEY.strip():
+        answer = "Add your base URL and key in the file first."
         with st.chat_message("assistant"):
             st.error(answer)
         st.session_state.messages.append({"role": "assistant", "content": answer})
     else:
         with st.chat_message("assistant"):
             try:
-                raw = client.chat(message=prompt, mode=st.session_state.response_mode)
-                answer = extract_assistant_text(raw)
+                answer = send_message(prompt, st.session_state.response_mode)
                 st.markdown(answer)
             except Exception as exc:
                 answer = f"Request failed.\n\n`{exc}`"
                 st.error(answer)
-
         st.session_state.messages.append({"role": "assistant", "content": answer})
