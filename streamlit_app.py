@@ -28,13 +28,16 @@ def image_to_base64(path: str) -> str:
     return base64.b64encode(file_path.read_bytes()).decode("utf-8")
 
 
-def build_embed_html(height: int) -> str:
+def build_embed_html(min_height: int) -> str:
     return f"""
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0, maximum-scale=1.0"
+  />
   <style>
     * {{
       box-sizing: border-box;
@@ -44,8 +47,7 @@ def build_embed_html(height: int) -> str:
       margin: 0;
       padding: 0;
       width: 100%;
-      height: 100%;
-      min-height: {height}px;
+      min-height: {min_height}px;
       background: transparent;
       overflow: hidden;
       font-family: Arial, Helvetica, sans-serif;
@@ -56,13 +58,11 @@ def build_embed_html(height: int) -> str:
     }}
 
     #mount {{
-      position: fixed;
-      inset: 0;
+      position: relative;
       width: 100%;
-      height: 100%;
-      min-height: {height}px;
+      min-height: {min_height}px;
       background: transparent;
-      overflow: hidden;
+      overflow: visible;
     }}
   </style>
 </head>
@@ -71,6 +71,32 @@ def build_embed_html(height: int) -> str:
 
   <script>
     (function () {{
+      const MIN_HEIGHT = {min_height};
+
+      function getDocumentHeight() {{
+        const body = document.body;
+        const html = document.documentElement;
+        return Math.max(
+          body.scrollHeight,
+          body.offsetHeight,
+          html.clientHeight,
+          html.scrollHeight,
+          html.offsetHeight,
+          MIN_HEIGHT
+        );
+      }}
+
+      function sendHeight() {{
+        const height = getDocumentHeight();
+        window.parent.postMessage(
+          {{
+            type: "anythingllm-embed-height",
+            height: height
+          }},
+          "*"
+        );
+      }}
+
       const script = document.createElement("script");
       script.src = "{EMBED_SCRIPT_URL}";
       script.async = true;
@@ -78,12 +104,37 @@ def build_embed_html(height: int) -> str:
       script.setAttribute("data-base-api-url", "{EMBED_API_URL}");
       script.setAttribute("data-open-on-load", "on");
       script.setAttribute("data-window-width", "100%");
-      script.setAttribute("data-window-height", "{height}px");
+      script.setAttribute("data-window-height", "{min_height}px");
       script.setAttribute("data-assistant-name", "Naturalborne");
       script.setAttribute("data-send-message-text", "Ask a calculus question...");
       script.setAttribute("data-no-sponsor", "");
       script.setAttribute("data-no-header", "");
+
+      script.onload = function () {{
+        sendHeight();
+        setTimeout(sendHeight, 250);
+        setTimeout(sendHeight, 750);
+        setTimeout(sendHeight, 1500);
+        setTimeout(sendHeight, 3000);
+      }};
+
       document.body.appendChild(script);
+
+      const observer = new ResizeObserver(function () {{
+        sendHeight();
+      }});
+
+      observer.observe(document.documentElement);
+      observer.observe(document.body);
+
+      window.addEventListener("load", sendHeight);
+      window.addEventListener("resize", sendHeight);
+
+      const intervalId = setInterval(sendHeight, 1000);
+      window.addEventListener("beforeunload", function () {{
+        clearInterval(intervalId);
+        observer.disconnect();
+      }});
     }})();
   </script>
 </body>
@@ -117,7 +168,7 @@ glow = (
     else "0 18px 60px rgba(0,0,0,0.22)"
 )
 
-chat_height = 1120
+min_chat_height = 640
 
 st.markdown(
     f"""
@@ -153,8 +204,8 @@ st.markdown(
         background: linear-gradient(135deg, rgba(15,23,42,0.94), rgba(17,24,39,0.90));
         border: 1px solid rgba(148,163,184,0.12);
         border-radius: 30px;
-        padding: 1.6rem 1.6rem 1.4rem;
-        margin-bottom: 0.8rem;
+        padding: 1.4rem 1.5rem 1.25rem;
+        margin-bottom: 0.75rem;
         box-shadow: {glow};
     }}
 
@@ -198,7 +249,7 @@ st.markdown(
 
     .nb-title {{
         margin: 0;
-        font-size: 2.7rem;
+        font-size: 2.55rem;
         line-height: 1;
         font-weight: 800;
         letter-spacing: -0.04em;
@@ -247,11 +298,7 @@ st.markdown(
         padding: 0;
         box-shadow: {glow};
         overflow: hidden;
-        margin-top: 12px;
-    }}
-
-    .nb-widget-shell::before {{
-        content: none;
+        margin-top: 10px;
     }}
 
     .nb-widget-inner {{
@@ -260,11 +307,11 @@ st.markdown(
         border-radius: 22px;
         overflow: hidden;
         background: transparent;
-        min-height: {chat_height}px;
+        min-height: {min_chat_height}px;
     }}
 
     .nb-prompt-title {{
-        font-size: 1.25rem;
+        font-size: 1.2rem;
         font-weight: 800;
         letter-spacing: -0.02em;
         margin: 0 0 0.6rem 0;
@@ -294,6 +341,10 @@ st.markdown(
         font-size: 0.96rem;
     }}
 
+    .nb-resize-script {{
+        display: none;
+    }}
+
     @media (max-width: 950px) {{
         .block-container {{
             padding-top: 1.6rem;
@@ -306,7 +357,7 @@ st.markdown(
         }}
 
         .nb-title {{
-            font-size: 2.15rem;
+            font-size: 2.1rem;
         }}
 
         .nb-hero {{
@@ -314,7 +365,7 @@ st.markdown(
         }}
 
         .nb-widget-inner {{
-            min-height: 980px;
+            min-height: 560px;
         }}
     }}
 </style>
@@ -363,7 +414,7 @@ with right:
         <div class="nb-card">
             <div class="nb-card-title">Live chat</div>
             <div class="nb-card-text">
-                Full-height embedded AnythingLLM workspace.
+                Auto-resizing embedded AnythingLLM workspace.
             </div>
         </div>
         """,
@@ -402,6 +453,50 @@ if show_tips:
         unsafe_allow_html=True,
     )
 
+st.markdown(
+    """
+    <script class="nb-resize-script">
+      (function () {
+        if (window.__anythingllmResizeListenerInstalled) return;
+        window.__anythingllmResizeListenerInstalled = true;
+
+        function resizeAnythingLLMIframes() {
+          const iframes = window.parent.document.querySelectorAll('iframe[title="st.iframe"], iframe');
+          for (const iframe of iframes) {
+            try {
+              const srcdoc = iframe.getAttribute("srcdoc") || "";
+              if (srcdoc.includes("anythingllm-embed-height") || srcdoc.includes("anythingllm-chat-widget")) {
+                iframe.style.height = window.__anythingllmLastHeight || "640px";
+              }
+            } catch (error) {}
+          }
+        }
+
+        window.addEventListener("message", function (event) {
+          const data = event.data;
+          if (!data || data.type !== "anythingllm-embed-height") return;
+
+          const nextHeight = Math.max(Number(data.height || 0), 640);
+          window.__anythingllmLastHeight = `${nextHeight}px`;
+
+          const iframes = window.parent.document.querySelectorAll('iframe[title="st.iframe"], iframe');
+          for (const iframe of iframes) {
+            try {
+              const srcdoc = iframe.getAttribute("srcdoc") || "";
+              if (srcdoc.includes("anythingllm-embed-height") || srcdoc.includes("anythingllm-chat-widget")) {
+                iframe.style.height = `${nextHeight}px`;
+              }
+            } catch (error) {}
+          }
+        });
+
+        setInterval(resizeAnythingLLMIframes, 1000);
+      })();
+    </script>
+    """,
+    unsafe_allow_html=True,
+)
+
 st.markdown('<div class="nb-widget-shell"><div class="nb-widget-inner">', unsafe_allow_html=True)
-components.html(build_embed_html(chat_height), height=chat_height, scrolling=False)
+components.html(build_embed_html(min_chat_height), height=min_chat_height, scrolling=False)
 st.markdown("</div></div>", unsafe_allow_html=True)
