@@ -8,7 +8,7 @@ import streamlit as st
 # EMBEDDED CONNECTION SETTINGS
 # =========================================================
 # Paste your actual values here before running.
-ANYTHINGLLM_BASE_URL = "http://127.0.0.1:8001"
+ANYTHINGLLM_BASE_URL = "http://127.0.0.1:3001"
 ANYTHINGLLM_API_KEY = "GPWSNPA-X2Q4VAC-PR1D626-3ZWMQQ6"
 WORKSPACE_SLUG = "naturalborne"
 CHAT_PATH = "/api/v1/workspace/{workspace_slug}/chat"
