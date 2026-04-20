@@ -11,7 +11,7 @@ import streamlit as st
 ANYTHINGLLM_BASE_URL = "http://127.0.0.1:3001"
 ANYTHINGLLM_API_KEY = "GPWSNPA-X2Q4VAC-PR1D626-3ZWMQQ6"
 WORKSPACE_SLUG = "naturalborne"
-CHAT_PATH = "/v1/workspace/natualborne/chat"
+CHAT_PATH = "/v1/workspace/naturalborne/chat"
 VERIFY_SSL = True
 TIMEOUT_SECONDS = 120
 
