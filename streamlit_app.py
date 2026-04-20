@@ -28,16 +28,13 @@ def image_to_base64(path: str) -> str:
     return base64.b64encode(file_path.read_bytes()).decode("utf-8")
 
 
-def build_embed_html(min_height: int) -> str:
+def build_embed_html(initial_height: int) -> str:
     return f"""
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta
-    name="viewport"
-    content="width=device-width, initial-scale=1.0, maximum-scale=1.0"
-  />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
     * {{
       box-sizing: border-box;
@@ -47,7 +44,7 @@ def build_embed_html(min_height: int) -> str:
       margin: 0;
       padding: 0;
       width: 100%;
-      min-height: {min_height}px;
+      min-height: {initial_height}px;
       background: transparent;
       overflow: hidden;
       font-family: Arial, Helvetica, sans-serif;
@@ -60,42 +57,91 @@ def build_embed_html(min_height: int) -> str:
     #mount {{
       position: relative;
       width: 100%;
-      min-height: {min_height}px;
+      min-height: {initial_height}px;
       background: transparent;
       overflow: visible;
+    }}
+
+    #status {{
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: {initial_height}px;
+      color: rgba(203, 213, 225, 0.72);
+      font-size: 14px;
+      text-align: center;
+      padding: 24px;
+    }}
+
+    #status.hidden {{
+      display: none;
     }}
   </style>
 </head>
 <body>
-  <div id="mount"></div>
+  <div id="mount">
+    <div id="status">Loading Naturalborne chat…</div>
+  </div>
 
   <script>
     (function () {{
-      const MIN_HEIGHT = {min_height};
+      const status = document.getElementById("status");
 
-      function getDocumentHeight() {{
+      function getBestHeight() {{
         const body = document.body;
-        const html = document.documentElement;
-        return Math.max(
-          body.scrollHeight,
-          body.offsetHeight,
-          html.clientHeight,
-          html.scrollHeight,
-          html.offsetHeight,
-          MIN_HEIGHT
-        );
+        const doc = document.documentElement;
+        const widget = document.querySelector("anythingllm-chat-widget");
+
+        const values = [
+          body ? body.scrollHeight : 0,
+          body ? body.offsetHeight : 0,
+          doc ? doc.scrollHeight : 0,
+          doc ? doc.offsetHeight : 0,
+          doc ? doc.clientHeight : 0,
+          widget ? widget.scrollHeight : 0,
+          widget ? widget.offsetHeight : 0
+        ];
+
+        return Math.max(...values, {initial_height});
       }}
 
-      function sendHeight() {{
-        const height = getDocumentHeight();
+      function setFrameHeight(height) {{
+        const safeHeight = Math.max(height || 0, 520);
         window.parent.postMessage(
           {{
-            type: "anythingllm-embed-height",
-            height: height
+            isStreamlitMessage: true,
+            type: "streamlit:setFrameHeight",
+            height: safeHeight
           }},
           "*"
         );
       }}
+
+      function resizeNow() {{
+        requestAnimationFrame(() => {{
+          setFrameHeight(getBestHeight());
+        }});
+      }}
+
+      const observer = new MutationObserver(() => {{
+        resizeNow();
+
+        const widget = document.querySelector("anythingllm-chat-widget");
+        if (widget) {{
+          status.classList.add("hidden");
+        }}
+      }});
+
+      observer.observe(document.documentElement, {{
+        childList: true,
+        subtree: true,
+        attributes: true
+      }});
+
+      window.addEventListener("load", resizeNow);
+      window.addEventListener("resize", resizeNow);
+
+      setInterval(resizeNow, 700);
 
       const script = document.createElement("script");
       script.src = "{EMBED_SCRIPT_URL}";
@@ -104,37 +150,20 @@ def build_embed_html(min_height: int) -> str:
       script.setAttribute("data-base-api-url", "{EMBED_API_URL}");
       script.setAttribute("data-open-on-load", "on");
       script.setAttribute("data-window-width", "100%");
-      script.setAttribute("data-window-height", "{min_height}px");
+      script.setAttribute("data-window-height", "{initial_height}px");
       script.setAttribute("data-assistant-name", "Naturalborne");
       script.setAttribute("data-send-message-text", "Ask a calculus question...");
       script.setAttribute("data-no-sponsor", "");
       script.setAttribute("data-no-header", "");
 
       script.onload = function () {{
-        sendHeight();
-        setTimeout(sendHeight, 250);
-        setTimeout(sendHeight, 750);
-        setTimeout(sendHeight, 1500);
-        setTimeout(sendHeight, 3000);
+        setTimeout(resizeNow, 200);
+        setTimeout(resizeNow, 800);
+        setTimeout(resizeNow, 1600);
       }};
 
       document.body.appendChild(script);
-
-      const observer = new ResizeObserver(function () {{
-        sendHeight();
-      }});
-
-      observer.observe(document.documentElement);
-      observer.observe(document.body);
-
-      window.addEventListener("load", sendHeight);
-      window.addEventListener("resize", sendHeight);
-
-      const intervalId = setInterval(sendHeight, 1000);
-      window.addEventListener("beforeunload", function () {{
-        clearInterval(intervalId);
-        observer.disconnect();
-      }});
+      resizeNow();
     }})();
   </script>
 </body>
@@ -168,7 +197,7 @@ glow = (
     else "0 18px 60px rgba(0,0,0,0.22)"
 )
 
-min_chat_height = 640
+initial_chat_height = 640
 
 st.markdown(
     f"""
@@ -204,7 +233,7 @@ st.markdown(
         background: linear-gradient(135deg, rgba(15,23,42,0.94), rgba(17,24,39,0.90));
         border: 1px solid rgba(148,163,184,0.12);
         border-radius: 30px;
-        padding: 1.4rem 1.5rem 1.25rem;
+        padding: 1.55rem 1.6rem 1.35rem;
         margin-bottom: 0.75rem;
         box-shadow: {glow};
     }}
@@ -249,7 +278,7 @@ st.markdown(
 
     .nb-title {{
         margin: 0;
-        font-size: 2.55rem;
+        font-size: 2.7rem;
         line-height: 1;
         font-weight: 800;
         letter-spacing: -0.04em;
@@ -287,31 +316,15 @@ st.markdown(
         line-height: 1.65;
     }}
 
-    .nb-widget-shell {{
-        position: relative;
-        background:
-            radial-gradient(circle at top left, rgba(59,130,246,0.10), transparent 24%),
-            radial-gradient(circle at bottom right, rgba(14,165,233,0.08), transparent 22%),
-            rgba(7,12,24,0.64);
-        border: 1px solid rgba(148,163,184,0.12);
-        border-radius: 28px;
-        padding: 0;
-        box-shadow: {glow};
-        overflow: hidden;
+    .nb-embed {{
         margin-top: 10px;
-    }}
-
-    .nb-widget-inner {{
-        margin-top: 0;
-        padding-top: 0;
         border-radius: 22px;
-        overflow: hidden;
+        overflow: visible;
         background: transparent;
-        min-height: {min_chat_height}px;
     }}
 
     .nb-prompt-title {{
-        font-size: 1.2rem;
+        font-size: 1.25rem;
         font-weight: 800;
         letter-spacing: -0.02em;
         margin: 0 0 0.6rem 0;
@@ -341,10 +354,6 @@ st.markdown(
         font-size: 0.96rem;
     }}
 
-    .nb-resize-script {{
-        display: none;
-    }}
-
     @media (max-width: 950px) {{
         .block-container {{
             padding-top: 1.6rem;
@@ -357,15 +366,11 @@ st.markdown(
         }}
 
         .nb-title {{
-            font-size: 2.1rem;
+            font-size: 2.15rem;
         }}
 
         .nb-hero {{
             padding: 1.2rem;
-        }}
-
-        .nb-widget-inner {{
-            min-height: 560px;
         }}
     }}
 </style>
@@ -414,7 +419,7 @@ with right:
         <div class="nb-card">
             <div class="nb-card-title">Live chat</div>
             <div class="nb-card-text">
-                Auto-resizing embedded AnythingLLM workspace.
+                Auto-resizing AnythingLLM embed with no extra shell box.
             </div>
         </div>
         """,
@@ -453,50 +458,6 @@ if show_tips:
         unsafe_allow_html=True,
     )
 
-st.markdown(
-    """
-    <script class="nb-resize-script">
-      (function () {
-        if (window.__anythingllmResizeListenerInstalled) return;
-        window.__anythingllmResizeListenerInstalled = true;
-
-        function resizeAnythingLLMIframes() {
-          const iframes = window.parent.document.querySelectorAll('iframe[title="st.iframe"], iframe');
-          for (const iframe of iframes) {
-            try {
-              const srcdoc = iframe.getAttribute("srcdoc") || "";
-              if (srcdoc.includes("anythingllm-embed-height") || srcdoc.includes("anythingllm-chat-widget")) {
-                iframe.style.height = window.__anythingllmLastHeight || "640px";
-              }
-            } catch (error) {}
-          }
-        }
-
-        window.addEventListener("message", function (event) {
-          const data = event.data;
-          if (!data || data.type !== "anythingllm-embed-height") return;
-
-          const nextHeight = Math.max(Number(data.height || 0), 640);
-          window.__anythingllmLastHeight = `${nextHeight}px`;
-
-          const iframes = window.parent.document.querySelectorAll('iframe[title="st.iframe"], iframe');
-          for (const iframe of iframes) {
-            try {
-              const srcdoc = iframe.getAttribute("srcdoc") || "";
-              if (srcdoc.includes("anythingllm-embed-height") || srcdoc.includes("anythingllm-chat-widget")) {
-                iframe.style.height = `${nextHeight}px`;
-              }
-            } catch (error) {}
-          }
-        });
-
-        setInterval(resizeAnythingLLMIframes, 1000);
-      })();
-    </script>
-    """,
-    unsafe_allow_html=True,
-)
-
-st.markdown('<div class="nb-widget-shell"><div class="nb-widget-inner">', unsafe_allow_html=True)
-components.html(build_embed_html(min_chat_height), height=min_chat_height, scrolling=False)
-st.markdown("</div></div>", unsafe_allow_html=True)
+st.markdown('<div class="nb-embed">', unsafe_allow_html=True)
+components.html(build_embed_html(initial_chat_height), height=initial_chat_height, scrolling=False)
+st.markdown("</div>", unsafe_allow_html=True)
