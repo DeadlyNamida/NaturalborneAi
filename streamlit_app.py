@@ -64,59 +64,14 @@ def build_embed_html(height: int) -> str:
       background: transparent;
       overflow: hidden;
     }}
-
-    #error {{
-      display: none;
-      position: absolute;
-      inset: 0;
-      padding: 24px;
-      color: #cbd5e1;
-      background: #020617;
-      font-size: 14px;
-      line-height: 1.6;
-    }}
-
-    #error.show {{
-      display: block;
-    }}
-
-    .error-card {{
-      max-width: 720px;
-      margin: 0 auto;
-      margin-top: 32px;
-      padding: 20px;
-      border-radius: 16px;
-      border: 1px solid rgba(148, 163, 184, 0.18);
-      background: rgba(15, 23, 42, 0.92);
-    }}
-
-    .error-code {{
-      display: inline-block;
-      margin-top: 10px;
-      padding: 8px 12px;
-      border-radius: 10px;
-      background: rgba(30, 41, 59, 0.95);
-      color: #93c5fd;
-      word-break: break-all;
-    }}
   </style>
 </head>
 <body>
   <div id="mount"></div>
 
-  <div id="error">
-    <div class="error-card">
-      <strong>AnythingLLM widget failed to load.</strong><br><br>
-      Check this URL in your browser:<br>
-      <span class="error-code">{EMBED_SCRIPT_URL}</span>
-    </div>
-  </div>
-
   <script>
     (function () {{
-      const errorBox = document.getElementById("error");
       const script = document.createElement("script");
-
       script.src = "{EMBED_SCRIPT_URL}";
       script.async = true;
       script.setAttribute("data-embed-id", "{EMBED_ID}");
@@ -128,18 +83,7 @@ def build_embed_html(height: int) -> str:
       script.setAttribute("data-send-message-text", "Ask a calculus question...");
       script.setAttribute("data-no-sponsor", "");
       script.setAttribute("data-no-header", "");
-
-      script.onerror = function () {{
-        errorBox.className = "show";
-      }};
-
       document.body.appendChild(script);
-
-      setTimeout(function () {{
-        if (!document.querySelector("anythingllm-chat-widget")) {{
-          errorBox.className = "show";
-        }}
-      }}, 4000);
     }})();
   </script>
 </body>
@@ -152,7 +96,6 @@ logo_b64 = image_to_base64("logo.png")
 with st.sidebar:
     st.markdown("## Naturalborne")
     st.caption("Advanced Calculus Workspace")
-    large_chat = st.toggle("Large chat area", value=True)
     show_tips = st.toggle("Show study tips", value=True)
     show_prompts = st.toggle("Show prompt ideas", value=True)
     accent_glow = st.toggle("Accent glow", value=True)
@@ -167,14 +110,14 @@ with st.sidebar:
     st.markdown("---")
     st.caption("Make sure AnythingLLM is running on port 3001.")
     st.link_button("Open AnythingLLM", ANYTHINGLLM_HOST, use_container_width=True)
-    st.link_button("Open Embed Script", EMBED_SCRIPT_URL, use_container_width=True)
 
-height = 980 if large_chat else 780
 glow = (
     "0 0 0 1px rgba(96,165,250,0.12), 0 30px 90px rgba(37,99,235,0.20)"
     if accent_glow
     else "0 18px 60px rgba(0,0,0,0.22)"
 )
+
+chat_height = 1120
 
 st.markdown(
     f"""
@@ -188,11 +131,11 @@ st.markdown(
     }}
 
     .block-container {{
-        max-width: 1280px;
-        padding-top: 3.2rem;
-        padding-bottom: 2rem;
-        padding-left: 1.4rem;
-        padding-right: 1.4rem;
+        max-width: 1380px;
+        padding-top: 2.2rem;
+        padding-bottom: 1.2rem;
+        padding-left: 1.2rem;
+        padding-right: 1.2rem;
     }}
 
     [data-testid="stSidebar"] {{
@@ -201,7 +144,7 @@ st.markdown(
     }}
 
     [data-testid="stSidebar"] .block-container {{
-        padding-top: 1.6rem;
+        padding-top: 1.4rem;
     }}
 
     .nb-hero {{
@@ -210,8 +153,8 @@ st.markdown(
         background: linear-gradient(135deg, rgba(15,23,42,0.94), rgba(17,24,39,0.90));
         border: 1px solid rgba(148,163,184,0.12);
         border-radius: 30px;
-        padding: 2rem 2rem 1.8rem;
-        margin-bottom: 1rem;
+        padding: 1.6rem 1.6rem 1.4rem;
+        margin-bottom: 0.8rem;
         box-shadow: {glow};
     }}
 
@@ -234,8 +177,8 @@ st.markdown(
     }}
 
     .nb-logo-wrap {{
-        width: 86px;
-        height: 86px;
+        width: 80px;
+        height: 80px;
         border-radius: 24px;
         display: flex;
         align-items: center;
@@ -247,15 +190,15 @@ st.markdown(
     }}
 
     .nb-logo-wrap img {{
-        width: 58px;
-        height: 58px;
+        width: 56px;
+        height: 56px;
         object-fit: contain;
         display: block;
     }}
 
     .nb-title {{
         margin: 0;
-        font-size: 3rem;
+        font-size: 2.7rem;
         line-height: 1;
         font-weight: 800;
         letter-spacing: -0.04em;
@@ -263,18 +206,18 @@ st.markdown(
     }}
 
     .nb-sub {{
-        margin-top: 0.6rem;
+        margin-top: 0.45rem;
         color: #cbd5e1;
-        max-width: 860px;
-        line-height: 1.8;
-        font-size: 1.03rem;
+        max-width: 900px;
+        line-height: 1.65;
+        font-size: 0.98rem;
     }}
 
     .nb-card {{
         background: rgba(15,23,42,0.74);
         border: 1px solid rgba(148,163,184,0.12);
         border-radius: 24px;
-        padding: 1.15rem;
+        padding: 1rem 1.1rem;
         box-shadow: 0 14px 38px rgba(0,0,0,0.16);
     }}
 
@@ -284,24 +227,27 @@ st.markdown(
         letter-spacing: 0.08em;
         font-size: 0.78rem;
         font-weight: 700;
-        margin-bottom: 0.55rem;
+        margin-bottom: 0.45rem;
     }}
 
     .nb-card-text {{
         color: #dbe3ef;
-        font-size: 0.98rem;
-        line-height: 1.7;
+        font-size: 0.96rem;
+        line-height: 1.65;
     }}
 
     .nb-widget-shell {{
         position: relative;
-        background: rgba(7,12,24,0.64);
+        background:
+            radial-gradient(circle at top left, rgba(59,130,246,0.10), transparent 24%),
+            radial-gradient(circle at bottom right, rgba(14,165,233,0.08), transparent 22%),
+            rgba(7,12,24,0.64);
         border: 1px solid rgba(148,163,184,0.12);
         border-radius: 28px;
         padding: 0;
         box-shadow: {glow};
         overflow: hidden;
-        margin-top: 16px;
+        margin-top: 12px;
     }}
 
     .nb-widget-shell::before {{
@@ -310,17 +256,18 @@ st.markdown(
 
     .nb-widget-inner {{
         margin-top: 0;
+        padding-top: 0;
         border-radius: 22px;
         overflow: hidden;
-        background: rgba(2,6,23,0.5);
-        min-height: 560px;
+        background: transparent;
+        min-height: {chat_height}px;
     }}
 
     .nb-prompt-title {{
-        font-size: 1.4rem;
+        font-size: 1.25rem;
         font-weight: 800;
         letter-spacing: -0.02em;
-        margin: 0 0 0.7rem 0;
+        margin: 0 0 0.6rem 0;
         color: #f8fafc;
     }}
 
@@ -349,9 +296,9 @@ st.markdown(
 
     @media (max-width: 950px) {{
         .block-container {{
-            padding-top: 3rem;
-            padding-left: 1rem;
-            padding-right: 1rem;
+            padding-top: 1.6rem;
+            padding-left: 0.9rem;
+            padding-right: 0.9rem;
         }}
 
         .nb-brand {{
@@ -359,11 +306,15 @@ st.markdown(
         }}
 
         .nb-title {{
-            font-size: 2.3rem;
+            font-size: 2.15rem;
         }}
 
         .nb-hero {{
-            padding: 1.35rem;
+            padding: 1.2rem;
+        }}
+
+        .nb-widget-inner {{
+            min-height: 980px;
         }}
     }}
 </style>
@@ -408,12 +359,11 @@ with left:
 
 with right:
     st.markdown(
-        f"""
+        """
         <div class="nb-card">
-            <div class="nb-card-title">Current setup</div>
+            <div class="nb-card-title">Live chat</div>
             <div class="nb-card-text">
-                {'Expanded chat height is enabled.' if large_chat else 'Compact chat height is enabled.'}
-                {' Extra accent glow is enabled.' if accent_glow else ' Accent glow is reduced.'}
+                Full-height embedded AnythingLLM workspace.
             </div>
         </div>
         """,
@@ -441,7 +391,7 @@ if show_prompts:
 if show_tips:
     st.markdown(
         """
-        <div class="nb-card" style="margin-top:16px; margin-bottom:16px;">
+        <div class="nb-card" style="margin-top:14px; margin-bottom:12px;">
             <div class="nb-card-title">Study tips</div>
             <div class="nb-note">
                 Ask full questions for better help, include your own working when you want corrections,
@@ -453,5 +403,5 @@ if show_tips:
     )
 
 st.markdown('<div class="nb-widget-shell"><div class="nb-widget-inner">', unsafe_allow_html=True)
-components.html(build_embed_html(height), height=height, scrolling=False)
+components.html(build_embed_html(chat_height), height=chat_height, scrolling=False)
 st.markdown("</div></div>", unsafe_allow_html=True)
