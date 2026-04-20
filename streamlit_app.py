@@ -800,8 +800,6 @@ if show_tips:
             <div class="nb-card-title">Study tips</div>
             <div class="nb-card-text">
                 Pick a mode first, inject a prompt, then tweak the wording in the chat box.
-                For better marks, ask for definitions, method choice, clean working, and a final boxed answer.
-            </div>
         </div>
         """,
         unsafe_allow_html=True,
