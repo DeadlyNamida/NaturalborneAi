@@ -25,6 +25,14 @@ PROMPTS = [
     "Teach me u-substitution like a tutor.",
 ]
 
+MODES = {
+    "Step by step": "Work step by step. Show each step clearly and do not skip reasoning.",
+    "Exam assistance": "Answer in exam style. Be concise, structured, and show working clearly.",
+    "Concept tutoring": "Teach like a tutor. Explain the concept simply before solving.",
+    "Error checking": "Check my work carefully. Point out mistakes and correct them clearly.",
+}
+
+
 st.set_page_config(
     page_title="Naturalborne",
     page_icon="🧠",
@@ -40,8 +48,13 @@ def image_to_base64(path: str) -> str:
     return base64.b64encode(file_path.read_bytes()).decode("utf-8")
 
 
-def build_embed_html(initial_height: int, prompts: list[str]) -> str:
-    prompts_json = json.dumps(prompts)
+def compose_prompt(base_prompt: str, mode_name: str) -> str:
+    mode_text = MODES.get(mode_name, "")
+    return f"{mode_text}\n\n{base_prompt}".strip()
+
+
+def build_embed_html(initial_height: int, pending_prompt: str, apply_nonce: int) -> str:
+    pending_prompt_json = json.dumps(pending_prompt)
     return f"""
 <!DOCTYPE html>
 <html lang="en">
@@ -79,81 +92,23 @@ def build_embed_html(initial_height: int, prompts: list[str]) -> str:
     #status {{
       color: rgba(203, 213, 225, 0.72);
       font-size: 14px;
-      padding: 4px 0 10px 2px;
+      padding: 2px 0 6px 2px;
     }}
 
     #status.hidden {{
       display: none;
-    }}
-
-    #promptSection {{
-      padding-top: 14px;
-    }}
-
-    #promptTitle {{
-      margin: 0 0 10px 0;
-      color: #f8fafc;
-      font-size: 1.05rem;
-      font-weight: 800;
-      letter-spacing: -0.02em;
-    }}
-
-    #promptBar {{
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-    }}
-
-    .prompt-chip {{
-      appearance: none;
-      border: 1px solid rgba(96, 165, 250, 0.22);
-      background: linear-gradient(135deg, rgba(37,99,235,0.94), rgba(29,78,216,0.90));
-      color: white;
-      border-radius: 999px;
-      padding: 0.8rem 1rem;
-      font-size: 0.9rem;
-      font-weight: 700;
-      line-height: 1.2;
-      cursor: pointer;
-      box-shadow: 0 10px 28px rgba(37,99,235,0.18);
-      transition: transform 120ms ease, opacity 120ms ease;
-    }}
-
-    .prompt-chip:hover {{
-      transform: translateY(-1px);
-      opacity: 0.96;
-    }}
-
-    .prompt-chip:active {{
-      transform: translateY(0);
-    }}
-
-    @media (max-width: 700px) {{
-      #promptBar {{
-        gap: 8px;
-      }}
-
-      .prompt-chip {{
-        width: 100%;
-        text-align: left;
-      }}
     }}
   </style>
 </head>
 <body>
   <div id="mount">
     <div id="status">Loading Naturalborne chat…</div>
-    <div id="embedRoot"></div>
-    <div id="promptSection">
-      <div id="promptTitle">Calculus prompts</div>
-      <div id="promptBar"></div>
-    </div>
   </div>
 
   <script>
     (function () {{
-      const prompts = {prompts_json};
-      const promptBar = document.getElementById("promptBar");
+      const pendingPrompt = {pending_prompt_json};
+      const applyNonce = {apply_nonce};
       const status = document.getElementById("status");
 
       function getBestHeight() {{
@@ -199,8 +154,7 @@ def build_embed_html(initial_height: int, prompts: list[str]) -> str:
           try {{
             const found = root.querySelector(selector);
             if (found) return found;
-          }} catch (e) {{
-          }}
+          }} catch (e) {{}}
         }}
 
         const all = root.querySelectorAll ? root.querySelectorAll("*") : [];
@@ -245,14 +199,11 @@ def build_embed_html(initial_height: int, prompts: list[str]) -> str:
 
         try {{
           el.focus();
-        }} catch (e) {{
-        }}
+        }} catch (e) {{}}
 
         if ("value" in el) {{
-          const setter = Object.getOwnPropertyDescriptor(
-            Object.getPrototypeOf(el),
-            "value"
-          )?.set;
+          const proto = Object.getPrototypeOf(el);
+          const setter = Object.getOwnPropertyDescriptor(proto, "value")?.set;
 
           if (setter) {{
             setter.call(el, text);
@@ -262,8 +213,6 @@ def build_embed_html(initial_height: int, prompts: list[str]) -> str:
 
           el.dispatchEvent(new Event("input", {{ bubbles: true }}));
           el.dispatchEvent(new Event("change", {{ bubbles: true }}));
-          el.dispatchEvent(new KeyboardEvent("keydown", {{ bubbles: true, key: "End" }}));
-          el.dispatchEvent(new KeyboardEvent("keyup", {{ bubbles: true, key: "End" }}));
           return true;
         }}
 
@@ -301,50 +250,34 @@ def build_embed_html(initial_height: int, prompts: list[str]) -> str:
         return null;
       }}
 
-      function autofillPrompt(text) {{
-        let ok = false;
+      function applyPrompt(text) {{
+        if (!text) return;
+
         let attempts = 0;
 
-        const tryFill = () => {{
+        function tryFill() {{
           attempts += 1;
           const textbox = findBestTextbox();
 
-          if (textbox) {{
-            ok = setValueOnElement(textbox, text);
+          if (textbox && setValueOnElement(textbox, text)) {{
             try {{
               textbox.focus();
-            }} catch (e) {{
-            }}
-          }}
-
-          if (!ok && attempts < 12) {{
-            setTimeout(tryFill, 300);
+            }} catch (e) {{}}
+            status.textContent = "Prompt inserted into the chat box.";
+            status.classList.remove("hidden");
+            setTimeout(() => {{
+              status.classList.add("hidden");
+              resizeNow();
+            }}, 1200);
             return;
           }}
 
-          status.textContent = ok
-            ? "Prompt inserted into the chat box."
-            : "Could not auto-fill the chat box. Paste this prompt manually: " + text;
-          status.classList.remove("hidden");
-          setTimeout(() => {{
-            status.classList.add("hidden");
-            resizeNow();
-          }}, ok ? 1600 : 3600);
-        }};
+          if (attempts < 16) {{
+            setTimeout(tryFill, 300);
+          }}
+        }}
 
         tryFill();
-      }}
-
-      function addPromptButtons() {{
-        promptBar.innerHTML = "";
-        for (const prompt of prompts) {{
-          const button = document.createElement("button");
-          button.type = "button";
-          button.className = "prompt-chip";
-          button.textContent = prompt;
-          button.addEventListener("click", () => autofillPrompt(prompt));
-          promptBar.appendChild(button);
-        }}
       }}
 
       const observer = new MutationObserver(() => {{
@@ -367,8 +300,6 @@ def build_embed_html(initial_height: int, prompts: list[str]) -> str:
 
       setInterval(resizeNow, 700);
 
-      addPromptButtons();
-
       const script = document.createElement("script");
       script.src = "{EMBED_SCRIPT_URL}";
       script.async = true;
@@ -385,16 +316,31 @@ def build_embed_html(initial_height: int, prompts: list[str]) -> str:
       script.onload = function () {{
         setTimeout(resizeNow, 200);
         setTimeout(resizeNow, 800);
-        setTimeout(resizeNow, 1600);
+        setTimeout(() => applyPrompt(pendingPrompt), 1200);
       }};
 
       document.body.appendChild(script);
+
+      if (applyNonce > 0) {{
+        setTimeout(() => applyPrompt(pendingPrompt), 1600);
+      }}
+
       resizeNow();
     }})();
   </script>
 </body>
 </html>
 """
+
+
+if "mode" not in st.session_state:
+    st.session_state.mode = "Step by step"
+
+if "pending_prompt" not in st.session_state:
+    st.session_state.pending_prompt = ""
+
+if "apply_nonce" not in st.session_state:
+    st.session_state.apply_nonce = 0
 
 
 logo_b64 = image_to_base64("logo.png")
@@ -404,13 +350,6 @@ with st.sidebar:
     st.caption("Advanced Calculus Workspace")
     show_tips = st.toggle("Show study tips", value=True)
     accent_glow = st.toggle("Accent glow", value=True)
-
-    st.markdown("---")
-    st.markdown("### Modes")
-    st.markdown("- Step by step")
-    st.markdown("- Exam assistance")
-    st.markdown("- Concept tutoring")
-    st.markdown("- Error checking")
 
     st.markdown("---")
     st.caption("Make sure AnythingLLM is running on port 3001.")
@@ -437,7 +376,7 @@ st.markdown(
 
     .block-container {{
         max-width: 1380px;
-        padding-top: 2.2rem;
+        padding-top: 2.0rem;
         padding-bottom: 1.2rem;
         padding-left: 1.2rem;
         padding-right: 1.2rem;
@@ -542,10 +481,58 @@ st.markdown(
     }}
 
     .nb-embed {{
-        margin-top: 10px;
+        margin-top: 8px;
         border-radius: 22px;
         overflow: visible;
         background: transparent;
+    }}
+
+    .nb-section {{
+        margin-top: 14px;
+    }}
+
+    .nb-section-title {{
+        color: #f8fafc;
+        font-size: 1.08rem;
+        font-weight: 800;
+        margin: 0 0 0.8rem 0;
+        letter-spacing: -0.02em;
+    }}
+
+    .nb-mode-note {{
+        color: #a9bbd3;
+        font-size: 0.94rem;
+        margin-top: 0.4rem;
+        line-height: 1.6;
+    }}
+
+    div[data-testid="stRadio"] > label {{
+        display: none;
+    }}
+
+    div[role="radiogroup"] {{
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.6rem;
+    }}
+
+    div[role="radiogroup"] > label {{
+        margin: 0;
+        background: rgba(15,23,42,0.76);
+        border: 1px solid rgba(148,163,184,0.14);
+        border-radius: 999px;
+        padding: 0.65rem 0.95rem;
+    }}
+
+    .stButton > button {{
+        width: 100%;
+        border-radius: 999px;
+        border: 1px solid rgba(96,165,250,0.22);
+        background: linear-gradient(135deg, rgba(37,99,235,0.94), rgba(29,78,216,0.90));
+        color: white;
+        font-weight: 700;
+        padding: 0.8rem 1rem;
+        box-shadow: 0 10px 28px rgba(37,99,235,0.18);
     }}
 
     .nb-note {{
@@ -556,7 +543,7 @@ st.markdown(
 
     @media (max-width: 950px) {{
         .block-container {{
-            padding-top: 1.6rem;
+            padding-top: 1.4rem;
             padding-left: 0.9rem;
             padding-right: 0.9rem;
         }}
@@ -606,7 +593,7 @@ with left:
         <div class="nb-card">
             <div class="nb-card-title">Workspace</div>
             <div class="nb-card-text">
-                Use the embedded chat first, then tap a calculus prompt below to auto-fill the text box.
+                Use the chat first, then click a prompt below to auto-fill the text box with your chosen mode.
             </div>
         </div>
         """,
@@ -619,7 +606,7 @@ with right:
         <div class="nb-card">
             <div class="nb-card-title">Live chat</div>
             <div class="nb-card-text">
-                Auto-resizing AnythingLLM embed with prompt chips below it.
+                Auto-resizing AnythingLLM embed with modes and calculus prompts underneath.
             </div>
         </div>
         """,
@@ -632,7 +619,7 @@ if show_tips:
         <div class="nb-card" style="margin-top:14px; margin-bottom:12px;">
             <div class="nb-card-title">Study tips</div>
             <div class="nb-note">
-                Pick a prompt below, then edit the wording if you want a shorter answer, tutor mode, or exam format.
+                Pick a mode, click a prompt below, then edit the question in the chat box if needed.
             </div>
         </div>
         """,
@@ -640,5 +627,42 @@ if show_tips:
     )
 
 st.markdown('<div class="nb-embed">', unsafe_allow_html=True)
-components.html(build_embed_html(initial_chat_height, PROMPTS), height=initial_chat_height, scrolling=False)
+components.html(
+    build_embed_html(
+        initial_chat_height,
+        st.session_state.pending_prompt,
+        st.session_state.apply_nonce,
+    ),
+    height=initial_chat_height,
+    scrolling=False,
+)
+st.markdown("</div>", unsafe_allow_html=True)
+
+st.markdown('<div class="nb-section">', unsafe_allow_html=True)
+st.markdown('<div class="nb-section-title">Working mode</div>', unsafe_allow_html=True)
+
+selected_mode = st.radio(
+    "Working mode",
+    list(MODES.keys()),
+    index=list(MODES.keys()).index(st.session_state.mode),
+    horizontal=True,
+    key="mode_radio",
+)
+st.session_state.mode = selected_mode
+
+st.markdown(
+    f'<div class="nb-mode-note">{MODES[st.session_state.mode]}</div>',
+    unsafe_allow_html=True,
+)
+
+st.markdown('<div class="nb-section-title" style="margin-top:1rem;">Calculus prompts</div>', unsafe_allow_html=True)
+
+prompt_cols = st.columns(2)
+for idx, prompt in enumerate(PROMPTS):
+    with prompt_cols[idx % 2]:
+        if st.button(prompt, key=f"prompt_{idx}", use_container_width=True):
+            st.session_state.pending_prompt = compose_prompt(prompt, st.session_state.mode)
+            st.session_state.apply_nonce += 1
+            st.rerun()
+
 st.markdown("</div>", unsafe_allow_html=True)
