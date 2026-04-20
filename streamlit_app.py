@@ -925,7 +925,7 @@ with builder_actions[2]:
 st.markdown(
     """
     <div class="nb-footer-note">
-        Tip: for a stronger presentation grade, demo multiple modes on the same problem and show how the interface adapts.
+        Tip: for a stronger foundation demo multiple modes on the same problem.
     </div>
     """,
     unsafe_allow_html=True,
